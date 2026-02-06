@@ -182,7 +182,15 @@ export default function MirrorTab() {
   };
 
   const handleTryOn = async () => {
-    if (!user || !VERCEL_API_URL) return;
+    if (!user || !user.id) {
+      setTryOnError('Please sign in to use try-on.');
+      return;
+    }
+
+    if (!VERCEL_API_URL) {
+      setTryOnError('API URL not configured.');
+      return;
+    }
 
     setTryOnLoading(true);
     setTryOnError(null);
@@ -198,31 +206,64 @@ export default function MirrorTab() {
       }
 
       if (itemsForLook.length === 0 && currentItem) {
+        // Normalize currentItem to match expected structure
         itemsForLook.push({
-          url: currentItem.url,
+          url: currentItem.url || currentItem.image,
           meta: currentItem.meta || {
-            title: currentItem.title,
+            title: currentItem.title || 'Current item',
+            image: currentItem.image,
+            brand: currentItem.brand,
           },
         });
       }
 
-      if (itemsForLook.length === 0) {
+      // Normalize all items to ensure they have at least url and meta
+      const normalizedItems = itemsForLook.map((item) => {
+        // If it's a history item from database, it might have different structure
+        if (item.image && !item.url) {
+          return {
+            url: item.image,
+            meta: item.meta || {
+              title: item.meta?.title || 'Item',
+            },
+          };
+        }
+        // Otherwise use as-is
+        return {
+          url: item.url || item.image,
+          meta: item.meta || {
+            title: item.title || 'Item',
+          },
+        };
+      });
+
+      if (normalizedItems.length === 0) {
         setTryOnError('No items available for try-on.');
         setTryOnLoading(false);
         return;
       }
 
+      const requestBody = {
+        userId: user.id,
+        items: normalizedItems,
+      };
+
+      console.log('[Mirror] Sending try-on request:', {
+        userId: user.id.substring(0, 8) + '...',
+        itemsCount: itemsForLook.length,
+        items: itemsForLook.map(i => ({ hasUrl: !!i.url, hasMeta: !!i.meta, title: i.meta?.title || i.title }))
+      });
+
       const response = await fetch(`${VERCEL_API_URL}/api/ai/visualize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          items: itemsForLook,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate try-on image');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[Mirror] Visualize API error:', response.status, errorData);
+        throw new Error(errorData.error || `Failed to generate try-on image (${response.status})`);
       }
 
       const data = await response.json();

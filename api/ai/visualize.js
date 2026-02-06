@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// VERSION: 2.2 - Signed URL Stability
+// Simple simulation mode: use Supabase signed URLs and return multiple "poses"
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -12,56 +11,62 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-<<<<<<< HEAD
-  const { userPhotoUrl, items } = req.body;
-  console.log('[Visualize] Request received:', { userPhotoUrl, itemsCount: items?.length });
-=======
   // Expect the user ID (to locate the stored reference photo) and one or more items
   const { userId, items } = req.body;
->>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
 
-  if (!userId || !items || items.length === 0) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  console.log('[Visualize] Request received:', {
+    hasUserId: !!userId,
+    userId: userId ? userId.substring(0, 8) + '...' : 'missing',
+    hasItems: !!items,
+    itemsLength: items?.length || 0,
+    itemsPreview: items?.slice(0, 2).map(i => ({ 
+      hasUrl: !!i.url, 
+      hasImage: !!i.image,
+      hasMeta: !!i.meta, 
+      title: i.meta?.title || i.title,
+      keys: Object.keys(i || {})
+    }))
+  });
+
+  // Validate userId
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    return res.status(400).json({ 
+      error: 'Missing required field: userId (must be a non-empty string)',
+      received: { 
+        hasUserId: !!userId, 
+        userIdType: typeof userId,
+        hasItems: !!items, 
+        itemsLength: items?.length || 0 
+      }
+    });
+  }
+
+  // Validate items array
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ 
+      error: 'Missing required field: items (must be a non-empty array)',
+      received: { 
+        hasUserId: true, 
+        userId: userId.substring(0, 8) + '...', 
+        hasItems: !!items,
+        itemsType: Array.isArray(items) ? 'array' : typeof items,
+        itemsLength: items?.length || 0 
+      }
+    });
   }
 
   try {
     const jobId = `job_${Date.now()}`;
 
-<<<<<<< HEAD
-    // 1. Download User Photo (Validation)
-    // Robust path extraction that handles query params or full URLs
-    let photoPath;
-    try {
-      const urlObj = new URL(userPhotoUrl);
-      // Extract everything after /user_photos/
-      // Assuming path format: .../user_photos/USER_ID/FILENAME.jpg
-      const pathParts = urlObj.pathname.split('user_photos/');
-      if (pathParts.length > 1) {
-        photoPath = pathParts[1];
-      } else {
-        // Fallback for unexpected URL structure, try to grab last 2 segments
-        photoPath = userPhotoUrl.split('/').slice(-2).join('/');
-      }
-      // Decode URI component to handle spaces/special chars
-      photoPath = decodeURIComponent(photoPath);
-    } catch (e) {
-      // Fallback if not a valid URL string
-      photoPath = userPhotoUrl.split('/').slice(-2).join('/');
-    }
-    console.log('[Visualize] Validating existence of:', photoPath);
-
-    // We check existence first
-    const { data: listData, error: listError } = await supabase.storage
-=======
-    // Download user photo from Supabase Storage
     // We always store the reference photo at `${user.id}/reference.jpg`
     const photoPath = `${userId}/reference.jpg`;
-    const { data: photoData, error: photoError } = await supabase.storage
->>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
+
+    // Check existence first
+    const { data: listData, error: listError } = await supabase.storage
       .from('user_photos')
-      .list(userPhotoUrl.split('/')[0], {
+      .list(userId, {
         limit: 1,
-        search: 'reference.jpg'
+        search: 'reference.jpg',
       });
 
     if (listError || !listData || listData.length === 0) {
@@ -69,8 +74,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Reference photo not found in storage' });
     }
 
-    // 2. Simulation Logic with Signed URL
-    // Private buckets require signed URLs for public viewing.
+    // Generate a signed URL for the reference photo
     console.log('[Visualize] Generating signed URL for simulation');
     const { data: signedData, error: signedError } = await supabase.storage
       .from('user_photos')
@@ -81,51 +85,28 @@ export default async function handler(req, res) {
       throw signedError;
     }
 
-<<<<<<< HEAD
     console.log('[Visualize] Simulation complete. Signed URL generated.');
-=======
-    // Construct prompt
-    const prompt = `Generate a photorealistic composite image of this person wearing:
-${items.map((item, idx) => `- Item ${idx + 1}: ${item.meta?.title || 'clothing item'}`).join('\n')}
 
-Maintain realistic proportions, lighting, and textures.`;
-
-    // Generate multiple images / poses (this is a placeholder - actual Imagen API may differ)
-    // Note: Imagen 3 API structure may vary, adjust based on actual documentation
-    const result = await model.generateImages({
-      prompt,
-      image: photoData,
-      numberOfImages: 3,
-    });
-
-    // Normalize into an array of "poses" so the UI can show different angles/variants
-    const rawImages = result.images || [];
-    const poses = rawImages
-      .map((img, idx) => ({
-        id: idx === 0 ? 'front' : `pose-${idx + 1}`,
-        imageUrl: img.url || '',
-      }))
-      .filter((p) => p.imageUrl);
->>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
+    // Fake multiple poses by reusing the same signed URL with different IDs
+    const poses = [
+      { id: 'front', imageUrl: signedData.signedUrl },
+      { id: 'side', imageUrl: signedData.signedUrl },
+      { id: 'back', imageUrl: signedData.signedUrl },
+    ];
 
     return res.status(200).json({
       jobId,
       status: 'complete',
-<<<<<<< HEAD
-      imageUrl: signedData.signedUrl,
-      version: '2.2',
-      message: 'Stylist Vision (Simulation Mode). Signed URL generated for secure preview.',
-      itemsProcessed: items.map(i => i.title)
-=======
       poses,
->>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
+      message:
+        'Simulation mode: using your reference photo with multiple pose slots (same image for now).',
+      itemsProcessed: items.map((i) => i.meta?.title || i.title || 'Item'),
     });
-
   } catch (error) {
     console.error('[Visualize] Fatal error during visualization:', error);
     return res.status(500).json({
       error: 'Failed to generate visualization',
-      details: error.message
+      details: error.message,
     });
   }
 }
