@@ -12,16 +12,22 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+<<<<<<< HEAD
   const { userPhotoUrl, items } = req.body;
   console.log('[Visualize] Request received:', { userPhotoUrl, itemsCount: items?.length });
+=======
+  // Expect the user ID (to locate the stored reference photo) and one or more items
+  const { userId, items } = req.body;
+>>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
 
-  if (!userPhotoUrl || !items || items.length === 0) {
+  if (!userId || !items || items.length === 0) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
     const jobId = `job_${Date.now()}`;
 
+<<<<<<< HEAD
     // 1. Download User Photo (Validation)
     // Robust path extraction that handles query params or full URLs
     let photoPath;
@@ -46,6 +52,12 @@ export default async function handler(req, res) {
 
     // We check existence first
     const { data: listData, error: listError } = await supabase.storage
+=======
+    // Download user photo from Supabase Storage
+    // We always store the reference photo at `${user.id}/reference.jpg`
+    const photoPath = `${userId}/reference.jpg`;
+    const { data: photoData, error: photoError } = await supabase.storage
+>>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
       .from('user_photos')
       .list(userPhotoUrl.split('/')[0], {
         limit: 1,
@@ -69,15 +81,44 @@ export default async function handler(req, res) {
       throw signedError;
     }
 
+<<<<<<< HEAD
     console.log('[Visualize] Simulation complete. Signed URL generated.');
+=======
+    // Construct prompt
+    const prompt = `Generate a photorealistic composite image of this person wearing:
+${items.map((item, idx) => `- Item ${idx + 1}: ${item.meta?.title || 'clothing item'}`).join('\n')}
+
+Maintain realistic proportions, lighting, and textures.`;
+
+    // Generate multiple images / poses (this is a placeholder - actual Imagen API may differ)
+    // Note: Imagen 3 API structure may vary, adjust based on actual documentation
+    const result = await model.generateImages({
+      prompt,
+      image: photoData,
+      numberOfImages: 3,
+    });
+
+    // Normalize into an array of "poses" so the UI can show different angles/variants
+    const rawImages = result.images || [];
+    const poses = rawImages
+      .map((img, idx) => ({
+        id: idx === 0 ? 'front' : `pose-${idx + 1}`,
+        imageUrl: img.url || '',
+      }))
+      .filter((p) => p.imageUrl);
+>>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
 
     return res.status(200).json({
       jobId,
       status: 'complete',
+<<<<<<< HEAD
       imageUrl: signedData.signedUrl,
       version: '2.2',
       message: 'Stylist Vision (Simulation Mode). Signed URL generated for secure preview.',
       itemsProcessed: items.map(i => i.title)
+=======
+      poses,
+>>>>>>> 9b5a736 (Fix auth flow, closet sync, and AI features - Add session sync between sidepanel and background script - Fix View Match button click handler - Improve product image extraction for H&M and other sites - Add pose variants and accessories support to Mirror tab - Remove unnecessary markdown documentation files)
     });
 
   } catch (error) {

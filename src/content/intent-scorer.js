@@ -2,7 +2,8 @@
 (function () {
   'use strict';
 
-  const INTENT_THRESHOLD = 3; // Reverted back to 3 to avoid homepages
+  // Low threshold so we show on real product pages, but still require some buying signals
+  const INTENT_THRESHOLD = 0;
 
   function isContextValid() {
     return !!(chrome.runtime && chrome.runtime.id);
@@ -25,10 +26,10 @@
       'buy now',
       'purchase',
       'checkout',
-      'order now'
+      'order now',
     ];
     const bodyText = document.body.textContent.toLowerCase();
-    addToCartTexts.forEach(text => {
+    addToCartTexts.forEach((text) => {
       if (bodyText.includes(text)) {
         score += 2;
         return;
@@ -53,9 +54,9 @@
       '[class*="size" i] li',
       '.size-selector',
       '#size-selector',
-      '[aria-label*="size" i]'
+      '[aria-label*="size" i]',
     ];
-    sizeSelectors.forEach(selector => {
+    sizeSelectors.forEach((selector) => {
       if (document.querySelector(selector)) {
         score += 2;
         return;
@@ -63,27 +64,51 @@
     });
 
     // Check for size guide / table (+1 point)
-    if (bodyText.includes('size guide') || bodyText.includes('size table') || bodyText.includes('size chart') || bodyText.includes('fit guide')) {
+    if (
+      bodyText.includes('size guide') ||
+      bodyText.includes('size table') ||
+      bodyText.includes('size chart') ||
+      bodyText.includes('fit guide')
+    ) {
       score += 1;
     }
 
     // Check for color variations (+1 point)
-    if (document.querySelector('.color-picker, [class*="color-swatch"], [id*="color-swatch"], [class*="variant" i]')) {
+    if (
+      document.querySelector(
+        '.color-picker, [class*="color-swatch"], [id*="color-swatch"], [class*="variant" i]'
+      )
+    ) {
       score += 1;
     }
 
     // Check for materials (+1 point)
-    if (bodyText.includes('material') || bodyText.includes('fabric') || bodyText.includes('composition') || bodyText.includes('cotton') || bodyText.includes('polyester')) {
+    if (
+      bodyText.includes('material') ||
+      bodyText.includes('fabric') ||
+      bodyText.includes('composition') ||
+      bodyText.includes('cotton') ||
+      bodyText.includes('polyester')
+    ) {
       score += 1;
     }
 
     // Check for stock status (+1 point)
-    if (bodyText.includes('in stock') || bodyText.includes('low stock') || bodyText.includes('out of stock') || bodyText.includes('available')) {
+    if (
+      bodyText.includes('in stock') ||
+      bodyText.includes('low stock') ||
+      bodyText.includes('out of stock') ||
+      bodyText.includes('available')
+    ) {
       score += 1;
     }
 
     // Check for quantity (+1 point)
-    if (bodyText.includes('qty') || bodyText.includes('quantity') || document.querySelector('input[name*="qty" i], select[name*="qty" i]')) {
+    if (
+      bodyText.includes('qty') ||
+      bodyText.includes('quantity') ||
+      document.querySelector('input[name*="qty" i], select[name*="qty" i]')
+    ) {
       score += 1;
     }
 
@@ -115,7 +140,7 @@
 
     if (matches) {
       // Find the first price that isn't "$1" or similar junk
-      const realPrice = matches.find(p => !p.match(/^[\$£€¥]\s*1$/));
+      const realPrice = matches.find((p) => !p.match(/^[\$£€¥]\s*1$/));
       if (realPrice) {
         meta.price = realPrice;
       }
@@ -125,25 +150,43 @@
     meta.brand = window.location.hostname;
 
     // Image
-    const imageSelectors = [
-      'meta[property="og:image"]',
-      'meta[name="twitter:image"]',
-      'link[rel="image_src"]',
-      'meta[property="og:image:secure_url"]'
-    ];
+    const ogImage = document.querySelector('meta[property="og:image"]');
+    if (ogImage) {
+      meta.image = ogImage.content;
+    } else {
+      // Try a few common product image patterns (covers H&M, Uniqlo, etc.)
+      let mainImg =
+        document.querySelector('img[src*="product"], img[data-zoom-image]') ||
+        document.querySelector('[data-testid*="product-image" i]') ||
+        document.querySelector('img[class*="product-detail"], img[class*="product-detail-main"]') ||
+        document.querySelector('main img');
 
-    for (const selector of imageSelectors) {
-      const el = document.querySelector(selector);
-      if (el) {
-        meta.image = el.content || el.href;
-        if (meta.image) break;
+      if (!mainImg) {
+        // Last-resort fallback: first reasonably-sized image on the page
+        const allImgs = Array.from(document.querySelectorAll('img'));
+        mainImg =
+          allImgs.find((img) => img.naturalWidth >= 200 && img.naturalHeight >= 200) || allImgs[0];
+      }
+
+      if (mainImg) {
+        meta.image =
+          mainImg.dataset.zoomImage ||
+          (mainImg.srcset ? mainImg.srcset.split(',')[0].trim().split(' ')[0] : null) ||
+          mainImg.currentSrc ||
+          mainImg.src;
       }
     }
 
     if (!meta.image) {
-      const mainImg = document.querySelector('img[src*="product"], img[data-zoom-image], [class*="product-image"] img, [id*="product-image"] img, .main-image img, #main-image img');
+      const mainImg = document.querySelector(
+        'img[src*="product"], img[data-zoom-image], [class*="product-image"] img, [id*="product-image"] img, .main-image img, #main-image img'
+      );
       if (mainImg) {
-        meta.image = mainImg.dataset.zoomImage || mainImg.dataset.mainImage || mainImg.srcset?.split(',')[0]?.trim() || mainImg.src;
+        meta.image =
+          mainImg.dataset.zoomImage ||
+          mainImg.dataset.mainImage ||
+          (mainImg.srcset ? mainImg.srcset.split(',')[0].trim() : null) ||
+          mainImg.src;
       }
     }
 
@@ -152,7 +195,7 @@
       'meta[property="og:description"]',
       'meta[name="description"]',
       'meta[property="product:brand"]',
-      'meta[name="keywords"]'
+      'meta[name="keywords"]',
     ];
     for (const selector of descriptionSelectors) {
       const el = document.querySelector(selector);
@@ -210,7 +253,8 @@
       alignItems: 'center',
     });
 
-    fab.onclick = () => {
+    // Use addEventListener so click works even if onclick is cleared/hidden
+    fab.addEventListener('click', () => {
       if (!isContextValid()) {
         fab.remove();
         return;
@@ -222,12 +266,11 @@
           type: 'OPEN_SIDE_PANEL',
           product: product,
         });
-        fab.style.transform = 'translateY(100px)'; // Hide after click
-      } catch (e) {
-        console.log('[DejaVista] Failed to send message (context invalidated)');
-        fab.remove();
+      } catch (err) {
+        console.error('[DejaVista] ✗ Failed to send OPEN_SIDE_PANEL message', err);
       }
-    };
+      fab.style.transform = 'translateY(100px)'; // Hide after click
+    });
 
     document.body.appendChild(fab);
 
@@ -281,3 +324,4 @@
     }
   }).observe(document, { subtree: true, childList: true });
 })();
+

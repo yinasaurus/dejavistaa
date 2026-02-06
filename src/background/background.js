@@ -13,7 +13,16 @@ async function initSupabase() {
   ]);
 
   if (supabaseUrl && supabaseAnonKey) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        storage: {
+          getItem: (key) => chrome.storage.local.get([key]).then((result) => result[key] || null),
+          setItem: (key, value) => chrome.storage.local.set({ [key]: value }),
+          removeItem: (key) => chrome.storage.local.remove([key]),
+        },
+      },
+    });
     console.log('[DejaVista] ✓ Supabase initialized from storage');
   } else {
     // Try to get from manifest (if injected)
@@ -22,7 +31,16 @@ async function initSupabase() {
     const key = manifest.env?.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (url && key) {
-      supabase = createClient(url, key);
+      supabase = createClient(url, key, {
+        auth: {
+          persistSession: true,
+          storage: {
+            getItem: (k) => chrome.storage.local.get([k]).then((result) => result[k] || null),
+            setItem: (k, value) => chrome.storage.local.set({ [k]: value }),
+            removeItem: (k) => chrome.storage.local.remove([k]),
+          },
+        },
+      });
       // Store for future use
       await chrome.storage.local.set({ supabaseUrl: url, supabaseAnonKey: key });
       console.log('[DejaVista] ✓ Supabase initialized from env vars');
@@ -67,6 +85,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const windowId = sender.tab?.windowId;
     if (windowId) {
       handleOpenSidePanel(message.product, windowId);
+    }
+    sendResponse({ success: true });
+  } else if (message.type === 'SUPABASE_SESSION') {
+    // Sync auth session from sidepanel into background Supabase client
+    if (supabase && message.session) {
+      console.log('[DejaVista] Received SUPABASE_SESSION in background');
+      supabase.auth
+        .setSession(message.session)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[DejaVista] ✗ Failed to set background session:', error);
+          } else {
+            console.log(
+              '[DejaVista] ✓ Background session set for:',
+              data?.session?.user?.email
+            );
+          }
+        })
+        .catch((error) => {
+          console.error('[DejaVista] ✗ Exception setting background session:', error);
+        });
+    } else {
+      console.warn('[DejaVista] ⚠ SUPABASE_SESSION received but supabase or session missing');
     }
     sendResponse({ success: true });
   }

@@ -79,81 +79,108 @@ export function AuthProvider({ children }) {
         },
         async (redirectUrl) => {
           if (chrome.runtime.lastError) {
-            console.error('[DejaVista] ✗ OAuth error:', JSON.stringify(chrome.runtime.lastError, null, 2));
-            showToast(`Auth failed: ${chrome.runtime.lastError.message}`, 'error');
+            console.error(
+              '[DejaVista] ✗ OAuth error:',
+              chrome.runtime.lastError,
+              chrome.runtime.lastError?.message
+            );
+            showToast(
+              `Auth failed: ${chrome.runtime.lastError?.message || 'OAuth error'}`,
+              'error'
+            );
             return;
           }
 
           if (!redirectUrl) {
             console.error('[DejaVista] ✗ No redirect URL returned');
+            showToast('Auth failed: No redirect URL returned', 'error');
             return;
           }
 
-          console.log('[DejaVista] Parsing redirect URL:', redirectUrl);
-          const url = new URL(redirectUrl);
+          try {
+            const url = new URL(redirectUrl);
 
-          // 1. Check for Authorization Code (PKCE Flow)
-          const code = url.searchParams.get('code');
-          if (code) {
-            console.log('[DejaVista] Found auth code, exchanging for session...');
-            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            // 1) Preferred: code flow (PKCE)
+            const code = url.searchParams.get('code');
 
-            if (error) {
-              console.error('[DejaVista] ✗ Code exchange error:', error);
-              showToast('Auth error: ' + error.message, 'error');
-            } else {
-              console.log('[DejaVista] ✓ Successfully exchanged code for session:', data.session?.user?.email);
-              showToast('Signed in successfully', 'success');
-              // Ensure we persist/update state
-              setUser(data.session?.user ?? null);
-              chrome.storage.local.set({
-                supabaseSession: data.session
-              });
-            }
-            return;
-          }
+            // 2) Fallback: implicit flow (tokens in hash fragment)
+            const hash = url.hash?.replace(/^#/, '');
+            const hashParams = new URLSearchParams(hash || '');
+            const accessTokenFromHash = hashParams.get('access_token');
+            const refreshTokenFromHash = hashParams.get('refresh_token');
 
-          // 2. Check for Direct Tokens (Implicit Flow) - Query Params
-          let accessToken = url.searchParams.get('access_token');
-          let refreshToken = url.searchParams.get('refresh_token');
-
-          // 3. Fallback: Check hash fragment
-          if (!accessToken && url.hash) {
-            const hashParams = new URLSearchParams(url.hash.substring(1)); // Remove leading '#'
-            accessToken = hashParams.get('access_token');
-            refreshToken = hashParams.get('refresh_token');
-          }
-
-          console.log('[DejaVista] Parsed tokens:', {
-            hasCode: !!code,
-            hasAccess: !!accessToken,
-            hasRefresh: !!refreshToken,
-            urlType: url.hash ? 'hash' : 'query'
-          });
-
-          if (accessToken && refreshToken) {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-
-            if (error) {
-              console.error('[DejaVista] ✗ Session error:', error);
-              showToast('Session error: ' + error.message, 'error');
-            } else {
-              console.log('[DejaVista] ✓ Successfully signed in:', data.session?.user?.email);
-
-              // CRITICAL: Force state update immediately
-              setUser(data.session?.user ?? null);
-              chrome.storage.local.set({
-                supabaseSession: data.session
+            if (code) {
+              const { data, error } = await supabase.auth.exchangeCodeForSession({
+                authCode: code,
               });
 
-              showToast('Signed in successfully', 'success');
+              if (error) {
+                console.error('[DejaVista] ✗ Session exchange error:', error);
+                showToast('Auth error: ' + error.message, 'error');
+              } else {
+                const session = data.session;
+                console.log(
+                  '[DejaVista] ✓ Successfully signed in (code flow):',
+                  session?.user?.email
+                );
+
+                setUser(session?.user ?? null);
+                chrome.storage.local.set({
+                  supabaseSession: session,
+                });
+
+                // Sync session to background script
+                chrome.runtime.sendMessage({
+                  type: 'SUPABASE_SESSION',
+                  session,
+                });
+
+                showToast('Signed in successfully', 'success');
+              }
+              return;
             }
-          } else {
-            console.error('[DejaVista] ✗ No tokens/code in redirect URL:', redirectUrl);
+
+            if (accessTokenFromHash) {
+              const { data, error } = await supabase.auth.setSession({
+                access_token: accessTokenFromHash,
+                // Some implicit flows don't return refresh_token; handle gracefully.
+                refresh_token: refreshTokenFromHash ?? '',
+              });
+
+              if (error) {
+                console.error('[DejaVista] ✗ Session error (implicit flow):', error);
+                showToast('Session error: ' + error.message, 'error');
+              } else {
+                const session = data.session;
+                console.log(
+                  '[DejaVista] ✓ Successfully signed in (implicit flow):',
+                  session?.user?.email
+                );
+
+                setUser(session?.user ?? null);
+                chrome.storage.local.set({
+                  supabaseSession: session,
+                });
+
+                // Sync session to background script
+                chrome.runtime.sendMessage({
+                  type: 'SUPABASE_SESSION',
+                  session,
+                });
+
+                showToast('Signed in successfully', 'success');
+              }
+              return;
+            }
+
+            console.error(
+              '[DejaVista] ✗ No auth code or access token in redirect URL',
+              redirectUrl
+            );
             showToast('Authentication failed: No tokens/code found', 'error');
+          } catch (err) {
+            console.error('[DejaVista] ✗ Failed to handle redirect URL:', err, redirectUrl);
+            showToast('Authentication failed: Invalid redirect URL', 'error');
           }
         }
       );
