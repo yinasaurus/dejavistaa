@@ -1,0 +1,133 @@
+{
+  "manifest_version": 3,
+  "name": "DejaVista - AI Fashion Memory",
+  "version": "1.0.0",
+  "description": "AI Stylist that remembers your browsing history to recommend matching outfits",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "identity",
+    "storage",
+    "sidePanel",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.uniqlo.com/*",
+        "https://www.zara.com/*",
+        "https://www.hm.com/*",
+        "https://www2.hm.com/*",
+        "https://www.asos.com/*",
+        "https://www.nordstrom.com/*",
+        "https://www.net-a-porter.com/*",
+        "https://www.ssense.com/*",
+        "https://www.farfetch.com/*",
+        "https://www.revolve.com/*",
+        "https://www.shopbop.com/*",
+        "https://www.mytheresa.com/*",
+        "https://www.matchesfashion.com/*",
+        "https://www.luisaviaroma.com/*",
+        "https://www.mrporter.com/*",
+        "https://www.endclothing.com/*",
+        "https://www.urbanoutfitters.com/*",
+        "https://www.freepeople.com/*",
+        "https://www.anthropologie.com/*",
+        "https://www.mango.com/*",
+        "https://www.cos.com/*",
+        "https://www.arket.com/*",
+        "https://www.stories.com/*",
+        "https://www.weekday.com/*",
+        "https://www.monki.com/*",
+        "https://www.gap.com/*",
+        "https://www.bananarepublic.com/*",
+        "https://www.jcrew.com/*",
+        "https://www.lululemon.com/*",
+        "https://www.nike.com/*",
+        "https://www.adidas.com/*",
+        "https://www.puma.com/*",
+        "https://www.lovebonito.com/*",
+        "https://www.charleskeith.com/*",
+        "https://www.pedro.com/*",
+        "https://www.zalora.sg/*",
+        "https://www.zalora.com/*",
+        "https://www.pomelo.com/*",
+        "https://sg.shein.com/*",
+        "https://www.shein.com/*",
+        "https://www.threadtheory.co/*",
+        "https://www.klarra.com/*",
+        "https://www.theeditorslabel.com/*",
+        "https://www.osmosestore.com/*",
+        "https://www.fashmob.com/*",
+        "https://www.beyondthevines.com/*",
+        "https://www.benjaminbarker.co/*",
+        "https://www.collatethestore.com/*",
+        "https://www.factorie.com.au/*",
+        "https://www.cottonon.com/*",
+        "https://www.everlane.com/*",
+        "https://www.thereformation.com/*",
+        "https://www.theory.com/*",
+        "https://www.vince.com/*",
+        "https://www.allsaints.com/*",
+        "https://www.rag-bone.com/*",
+        "https://www.sandro-paris.com/*",
+        "https://www.maje.com/*",
+        "https://www.claudiepierlot.com/*",
+        "https://www.reiss.com/*",
+        "https://www.ted-baker.com/*",
+        "https://www.superdry.com/*",
+        "https://www.scotch-soda.com/*",
+        "https://www.massimodutti.com/*",
+        "https://www.pullandbear.com/*",
+        "https://www.bershka.com/*",
+        "https://www.stradivarius.com/*",
+        "https://www.oysho.com/*"
+      ],
+      "js": [
+        "content/gaze-tracker.js",
+        "content/intent-scorer.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open DejaVista",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "oauth2": {
+    "client_id": "508630701048-i0fhpo2p6pelhfml6fdifo7rdtq72m5l.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

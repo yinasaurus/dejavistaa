@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DejaVista - AI Fashion Memory</title>
+    <meta name="description"
+        content="Chrome Extension that remembers your browsing to recommend matching outfits with AI">
+
+    <link rel="icon" type="image/png" href="icons/icon128.png">
+
+    <style>
+        :root {
+            --color-base: #F5E9E2;
+            --color-base-white: #FFFFFF;
+            --color-accent: #773344;
+            --color-accent-action: #D44D5C;
+            --color-accent-hover: #BF3A48;
+            --color-surface: #E3B5A4;
+            --color-text-primary: #0B0014;
+            --color-text-secondary: #5A3D45;
+            --color-border: #E3B5A4;
+
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 24px;
+
+            --shadow-sm: 0 1px 3px rgba(11, 0, 20, 0.05);
+            --shadow-md: 0 4px 12px rgba(11, 0, 20, 0.1);
+            --shadow-lg: 0 8px 30px rgba(11, 0, 20, 0.12);
+            --shadow-ai: 0 0 0 4px rgba(212, 77, 92, 0.1), 0 4px 12px rgba(212, 77, 92, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--color-text-primary);
+            background: var(--color-base);
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(245, 233, 226, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--color-border);
+            z-index: 100;
+            padding: 16px 24px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--color-text-primary);
+        }
+
+        .logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .logo-text span {
+            color: var(--color-accent);
+        }
+
+        .header-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            background: var(--color-accent-action);
+            color: white;
+            transition: all 0.2s ease;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .header-btn.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .header-btn:hover {
+            background: var(--color-accent-hover);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 160px 24px 100px;
+            text-align: center;
+            background: linear-gradient(180deg, var(--color-base-white) 0%, var(--color-base) 100%);
+        }
+
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 32px;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-action));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--color-text-secondary);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--color-accent-action);
+            color: white;
+            box-shadow: var(--shadow-ai);
+        }
+
+        .btn-primary:hover {
+            background: var(--color-accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(212, 77, 92, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--color-base-white);
+            color: var(--color-accent);
+            border: 1px solid var(--color-accent);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-base);
+            border-color: var(--color-text-secondary);
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 100px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .features-subtitle {
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 18px;
+            margin-bottom: 60px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .feature-card {
+            background: var(--color-base-white);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            transition: all 0.2s ease;
+        }
+
+        .feature-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--color-accent);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            font-size: 40px;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--color-accent);
+        }
+
+        .feature-card p {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            padding: 100px 24px;
+            background: var(--color-base-white);
+        }
+
+        .how-it-works-content {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 60px;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 24px;
+        }
+
+        .step-number {
+            width: 48px;
+            height: 48px;
+            background: var(--color-accent);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .step-content h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step-content p {
+            color: var(--color-text-secondary);
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 100px 24px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(180deg, var(--color-base) 0%, var(--color-surface) 100%);
+        }
+
+        .cta-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cta h2 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .cta p {
+            color: var(--color-text-secondary);
+            font-size: 18px;
+            margin-bottom: 32px;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 24px;
+            border-top: 1px solid var(--color-border);
+            text-align: center;
+            background: var(--color-base-white);
+        }
+
+        .footer p {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: var(--color-accent);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .hero p {
+                font-size: 18px;
+            }
+
+            .hero-icon {
+                width: 80px;
+                height: 80px;
+            }
+
+            .features h2,
+            .how-it-works h2,
+            .cta h2 {
+                font-size: 28px;
+            }
+
+            .header-btn span {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="#top" class="logo">
+                <img src="icons/icon128.png" alt="DejaVista">
+                <span class="logo-text">Deja<span>Vista</span></span>
+            </a>
+            <a href="#install" class="header-btn" id="headerBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="4" />
+                    <line x1="21.17" y1="8" x2="12" y2="8" />
+                    <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+                    <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+                </svg>
+                <span>Add to Chrome</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero" id="top">
+        <div class="hero-content">
+            <img src="icons/icon128.png" alt="DejaVista" class="hero-icon">
+            <h1>Your AI <span>Fashion Memory</span></h1>
+            <p>The Chrome extension that remembers your browsing and uses AI to recommend matching outfits from your
+                history.</p>
+            <div class="hero-buttons">
+                <a href="#install" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <circle cx="12" cy="12" r="4" />
+                        <line x1="21.17" y1="8" x2="12" y2="8" />
+                        <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+                        <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+                    </svg>
+                    Add to Chrome
+                </a>
+                <a href="#features" class="btn btn-secondary">Learn More</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <h2>Smart Fashion Assistance</h2>
+        <p class="features-subtitle">Let AI remember what you've seen and help you build the perfect outfit</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Passive Tracking</h3>
+                <p>Remembers items you view for 2+ seconds while browsing fashion sites.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>AI Matching</h3>
+                <p>Gemini AI finds items from your history that match what you're viewing.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">👔</div>
+                <h3>Virtual Try-On</h3>
+                <p>See how outfits look on you with AI-powered visualization.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Privacy First</h3>
+                <p>Incognito mode and one-click purge give you full control.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works">
+        <div class="how-it-works-content">
+            <h2>How It Works</h2>
+
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Browse Normally</h3>
+                        <p>Shop your favorite fashion sites. DejaVista quietly tracks items you look at for more than 2
+                            seconds.</p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Get AI Matches</h3>
+                        <p>When you're on a product page, the side panel shows matching items from your browsing
+                            history.</p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Try It On</h3>
+                        <p>Upload a reference photo and visualize how the complete outfit looks on you.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta" id="install">
+        <div class="cta-content">
+            <h2>Ready to Upgrade Your Shopping?</h2>
+            <p>Install DejaVista and let AI help you find the perfect outfit combinations.</p>
+            <a href="#" class="btn btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="4" />
+                    <line x1="21.17" y1="8" x2="12" y2="8" />
+                    <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+                    <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+                </svg>
+                Add to Chrome
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>DejaVista © 2026. Built with ❤️ using <a href="https://supabase.com">Supabase</a> & <a
+                href="https://ai.google.dev">Gemini</a></p>
+    </footer>
+
+    <!-- Scroll Script for Header Button -->
+    <script>
+        const headerBtn = document.getElementById('headerBtn');
+        const hero = document.querySelector('.hero');
+
+        window.addEventListener('scroll', () => {
+            const heroBottom = hero.offsetTop + hero.offsetHeight - 100;
+            if (window.scrollY > heroBottom) {
+                headerBtn.classList.add('visible');
+            } else {
+                headerBtn.classList.remove('visible');
+            }
+        });
+    </script>
+</body>
+
+</html>
