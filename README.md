@@ -11,7 +11,6 @@ Already have the repo? Just load the extension:
 3. Click **Load unpacked**
 4. Select the `dist` folder
 
-That's it! The extension is ready to use.
 
 ---
 
