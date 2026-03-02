@@ -93,14 +93,14 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
     // Only use Vertex AI if no API key but Vertex AI credentials are available
     if (geminiApiKey) {
       try {
-        console.log('[Recommend] Using Google AI SDK (API key)...');
+        console.log('[Recommend] Using Google AI SDK (API key, model: gemini-flash-latest)...');
         const googleAI = await initGoogleAI();
         if (!googleAI) {
           console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
           throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
-        // Use a widely supported text model for recommendations
-        const model = googleAI.getGenerativeModel({ model: 'gemini-pro' });
+        // Use the same model your curl example uses
+        const model = googleAI.getGenerativeModel({ model: 'gemini-flash-latest' });
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
         console.log('[Recommend] Successfully got response from Google AI SDK, length:', responseText.length);
