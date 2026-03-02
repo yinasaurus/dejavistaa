@@ -2,8 +2,8 @@
 (function () {
   'use strict';
 
-  const TIME_THRESHOLD = 2000; // 2 seconds
-  const SIZE_THRESHOLD = 200; // pixels
+  const TIME_THRESHOLD = 1200; // ms user needs to view image (slightly more sensitive)
+  const SIZE_THRESHOLD = 150; // pixels (track medium-sized product images too)
   const DEBOUNCE_ITEMS = 3;
   const DEBOUNCE_TIME = 5000; // 5 seconds
 

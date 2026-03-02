@@ -99,7 +99,8 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
           console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
           throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
-        const model = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        // Use an explicit versioned model ID to match current Google AI API
+        const model = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' });
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
         console.log('[Recommend] Successfully got response from Google AI SDK, length:', responseText.length);
@@ -140,7 +141,7 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
         const { VertexAI } = await import('@google-cloud/vertexai');
         const vertexAI = new VertexAI({ project, location, ...authOptions });
         const model = vertexAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-1.5-flash-001',
           generationConfig: {
             maxOutputTokens: 256,
             temperature: 0.7,

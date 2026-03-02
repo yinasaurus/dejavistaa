@@ -58,7 +58,7 @@ export default async function handler(req, res) {
             // Use Vertex AI
             console.log('[Validate] Using Vertex AI...');
             const model = vertexAI.getGenerativeModel({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-1.5-flash-001',
                 generationConfig: {
                     maxOutputTokens: 512,
                     temperature: 0.1, // Stricter for validation
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
                 throw new Error('Neither Vertex AI nor Google AI SDK available');
             }
 
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' });
             const result = await model.generateContent([
                 prompt,
                 {
