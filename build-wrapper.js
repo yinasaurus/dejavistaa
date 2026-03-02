@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-// Check if running in Vercel environment
+
 if (process.env.VERCEL) {
     console.log(' [DejaVista] Detected Vercel environment.');
     console.log(' [DejaVista] Skipping Chrome Extension build. Preparing landing page...');
