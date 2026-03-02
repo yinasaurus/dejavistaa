@@ -1,83 +1,39 @@
-# DejaVista - AI Fashion Memory
+## DejaVista - AI Fashion Memory
 
-Chrome Extension that passively tracks viewed clothing items and uses GenAI to recommend matching outfits from browsing history.
+Chrome extension that remembers what you browse on fashion sites and uses GenAI to suggest matching outfits.
 
-## 🚀 Quick Load (For Testers)
+### **Quick use (testers)**
 
-Already have the repo? Just load the extension:
-
-1. Open Chrome → `chrome://extensions/`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked**
-4. Select the `dist` folder
-
-
----
-
-## Features
-
-- 🎯 **Passive Tracking:** Automatically tracks clothing items you view while browsing
-- 🤖 **AI Recommendations:** Uses Gemini to find matching items from your history
-- 👔 **Virtual Try-On:** Visualize outfits with Vertex AI Imagen
-- 🔒 **Privacy First:** Full control over your data with incognito mode and purge options
-
-## Development Setup
-
-1. **Install dependencies:**
+1. Build (once):
    ```bash
    npm install
-   ```
-
-2. **Configure environment:**
-   - Copy `.env.example` to `.env`
-   - Fill in your Supabase and Google Cloud credentials
-   - **CRITICAL:** Ensure `GOOGLE_CLOUD_PROJECT_ID` and `GEMINI_API_KEY` are set for backend features.
-     (See [ENV_SETUP.md](./ENV_SETUP.md) for full list)
-
-3. **Build extension:**
-   ```bash
    npm run build
    ```
+2. In Chrome go to `chrome://extensions/` → enable **Developer mode** → **Load unpacked** → select the `dist` folder.
 
-4. **Load in Chrome:**
-   - Go to `chrome://extensions/`
-   - Enable Developer mode
-   - Click "Load unpacked"
-   - Select the `dist` folder
+### **Core features**
 
-## Project Structure
+- **Passive tracking** of clothing items on supported fashion sites  
+- **AI recommendations** from your Supabase-backed "closet" history  
+- **Virtual try-on** using your uploaded reference photo (backend AI APIs)  
+- **Privacy controls**: incognito toggle + one-click "Purge Memory"
 
-```
-├── src/
-│   ├── manifest.json          # Chrome extension manifest
-│   ├── sidepanel/             # React UI components
-│   ├── content/               # Content scripts (gaze tracking)
-│   └── background/            # Service worker
-├── api/                       # Vercel serverless functions
-│   └── ai/
-│       ├── recommend.js       # Gemini recommendations
-│       └── visualize/         # Imagen visualization
-├── database/                  # SQL migrations for Supabase
-├── public/                    # Static assets (icons, landing page)
-└── .env.example               # Environment variables template
-```
+### **Required config (summary)**
 
-## Tech Stack
+- Create `.env` in the project root (see `ENV_SETUP.md`):
+  - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+  - Optional: `VITE_VERCEL_API_URL` (defaults to the production URL)
+- On Vercel, set backend env vars (see `api/ai/GOOGLE_AUTH_SETUP.md` + `VERCEL_ENV_FIX.md`):
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+  - `GEMINI_API_KEY`, `GOOGLE_CLOUD_PROJECT_ID`
+  - `GOOGLE_APPLICATION_CREDENTIALS` (single‑line service account JSON), `VERTEX_AI_LOCATION` (optional)
 
-- **Frontend:** React + Vite
-- **Backend:** Vercel Serverless Functions
-- **Database:** Supabase (PostgreSQL)
-- **Storage:** Supabase Storage
-- **Auth:** Supabase Auth + Google OAuth
-- **AI:** Gemini, Vertex AI Imagen
+### **Tech stack**
 
-## Documentation
+- **Extension UI:** React + Vite + Chrome side panel  
+- **Data:** Supabase (Postgres + Storage + Auth)  
+- **AI:** Gemini (Google AI Studio) and/or Vertex AI, via Vercel serverless functions
 
-- [SETUP.md](./SETUP.md) - Full setup guide
-- [STYLE.md](./STYLE.md) - Design system
-- [BASE.md](./BASE.md) - Architecture overview
-- [database/README.md](./database/README.md) - Database setup
+### **License**
 
-## License
-
-MIT License - see [LICENSE](./LICENSE) for details
+MIT – see `LICENSE`.

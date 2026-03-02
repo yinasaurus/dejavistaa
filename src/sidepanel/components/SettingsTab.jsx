@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { VERCEL_API_URL } from '../utils/env';
 
 export default function SettingsTab() {
   const { user, supabase, signIn, signOut } = useAuth();
