@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Copy manifest.json to dist
+// Copy manifest.json to dis
 const distDir = resolve(__dirname, 'dist');
 if (!existsSync(distDir)) {
   mkdirSync(distDir, { recursive: true });
