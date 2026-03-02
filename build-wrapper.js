@@ -8,7 +8,7 @@ if (process.env.VERCEL) {
     console.log(' [DejaVista] Skipping Chrome Extension build. Preparing landing page...');
 
     try {
-        // Create dist directory
+        
         const distDir = path.resolve('dist');
         if (!fs.existsSync(distDir)) {
             fs.mkdirSync(distDir);
