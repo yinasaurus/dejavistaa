@@ -99,8 +99,8 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
           console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
           throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
-        // Use an explicit versioned model ID to match current Google AI API
-        const model = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' });
+        // Use a widely supported text model for recommendations
+        const model = googleAI.getGenerativeModel({ model: 'gemini-pro' });
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
         console.log('[Recommend] Successfully got response from Google AI SDK, length:', responseText.length);

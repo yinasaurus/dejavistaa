@@ -57,8 +57,9 @@ export default async function handler(req, res) {
         if (!fallback && vertexAI) {
             // Use Vertex AI
             console.log('[Validate] Using Vertex AI...');
+            // Vision-capable model for image + text
             const model = vertexAI.getGenerativeModel({
-                model: 'gemini-1.5-flash-001',
+                model: 'gemini-1.0-pro-vision',
                 generationConfig: {
                     maxOutputTokens: 512,
                     temperature: 0.1, // Stricter for validation
@@ -91,7 +92,8 @@ export default async function handler(req, res) {
                 throw new Error('Neither Vertex AI nor Google AI SDK available');
             }
 
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' });
+            // Google AI Studio multimodal model id
+            const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
             const result = await model.generateContent([
                 prompt,
                 {
