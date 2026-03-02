@@ -92,8 +92,8 @@ export default async function handler(req, res) {
                 throw new Error('Neither Vertex AI nor Google AI SDK available');
             }
 
-            // Google AI Studio multimodal model id
-            const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+            // Use same family as your working curl example (multimodal)
+            const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
             const result = await model.generateContent([
                 prompt,
                 {
