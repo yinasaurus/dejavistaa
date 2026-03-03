@@ -275,6 +275,23 @@ export default function MirrorTab() {
       setPoses(newPoses);
       setSelectedPose(newPoses[0] || null);
 
+      // Cache latest try-on result so it can be restored when coming
+      // back from other tabs (e.g. Memory → Mirror) without re-running.
+      try {
+        if (user && currentItem && newPoses.length > 0 && chrome?.storage?.local) {
+          const cacheKey = `tryon:${user.id}:${currentItem.url || currentItem.image}`;
+          chrome.storage.local.set({
+            [cacheKey]: {
+              poses: newPoses,
+              selectedPoseId: newPoses[0]?.id || null,
+              savedAt: Date.now(),
+            },
+          });
+        }
+      } catch (e) {
+        console.warn('[Mirror] Failed to cache try-on poses:', e);
+      }
+
       const accessoriesCandidates = historyItems
         .filter((item) => item.id !== recommendation?.matchedItemId)
         .slice(0, 6);
@@ -287,6 +304,28 @@ export default function MirrorTab() {
       setTryOnLoading(false);
     }
   };
+
+  // Restore cached try-on result when returning to Mirror for the same product
+  useEffect(() => {
+    const restoreCachedTryOn = async () => {
+      try {
+        if (!user || !currentItem || !chrome?.storage?.local) return;
+        const cacheKey = `tryon:${user.id}:${currentItem.url || currentItem.image}`;
+        const data = await chrome.storage.local.get(cacheKey);
+        const cached = data[cacheKey];
+        if (cached?.poses?.length) {
+          setPoses(cached.poses);
+          const initial =
+            cached.poses.find((p) => p.id === cached.selectedPoseId) || cached.poses[0];
+          setSelectedPose(initial);
+        }
+      } catch (e) {
+        console.warn('[Mirror] Failed to restore cached try-on poses:', e);
+      }
+    };
+
+    restoreCachedTryOn();
+  }, [user?.id, currentItem?.url, currentItem?.image]);
 
   if (!currentItem) {
     return (
@@ -483,6 +522,23 @@ export default function MirrorTab() {
                 >
                   {item.meta?.title || 'Saved item'}
                 </p>
+                {item.url && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      width: '100%',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(item.url, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    View item
+                  </button>
+                )}
               </div>
             ))}
           </div>

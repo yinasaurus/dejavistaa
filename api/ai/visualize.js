@@ -316,7 +316,16 @@ async function generateTryOnWithGemini({ referenceImageUrl, garmentImageUrl, gar
       },
     },
     {
-      text: `Create a professional e-commerce fashion photo. The second image shows the exact garment: ${garmentTitle}. Put THAT garment (shape, color, fabric) onto the person from the first image. Remove or replace any existing outerwear from the first image so the new garment is clearly visible. Keep the person’s face and body, but adjust lighting and shadows so the outfit looks naturally worn. Full-body, studio-style, neutral background. The garment in the final image must clearly match the second image, not the original clothing in the first image.`,
+      text: `Create a professional e-commerce fashion photo. The second image shows the exact garment: ${garmentTitle}. Put THAT garment (shape, color, fabric) onto the person from the first image.
+
+Rules:
+- Do NOT add any new accessories (no hats, bags, jewellery, glasses) that are not present in the first image.
+- Keep the person's hairstyle, face, and expression exactly the same.
+- Keep the inner layers (t-shirt/hoodie) and trousers in their original colors unless they would be completely hidden by the new garment.
+- Replace only the main outerwear/top as needed so the new garment is clearly visible.
+- Maintain realistic shadows and lighting so the garment looks naturally worn.
+
+The garment in the final image must clearly match the second image and must not change color or major design details.`,
     },
   ];
 
