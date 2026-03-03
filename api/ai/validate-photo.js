@@ -127,6 +127,24 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('[Validate] Fatal Error:', error);
+
+        const msg = error?.message || String(error || '');
+        const lower = msg.toLowerCase();
+        const isCapacityIssue =
+          msg.includes('503 Service Unavailable') ||
+          lower.includes('high demand') ||
+          lower.includes('temporarily unavailable');
+
+        if (isCapacityIssue) {
+            // Soft-fail for temporary Gemini capacity issues so users can still upload / change photos.
+            console.warn('[Validate] Gemini temporarily unavailable (capacity). Auto-accepting photo without AI validation.');
+            return res.status(200).json({
+                valid: true,
+                reasoning: 'AI temporarily unavailable; photo accepted without automatic validation.',
+                missingParts: []
+            });
+        }
+
         return res.status(500).json({
             error: 'Failed to validate photo',
             details: error.message
