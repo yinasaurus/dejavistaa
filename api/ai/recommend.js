@@ -88,46 +88,73 @@ Respond in JSON format ONLY:
 If nothing fits or history is empty, set recommendedItemId to null.`;
 
     let responseText = '';
-    
+
     // Prefer Google AI SDK (simpler, more reliable) if API key is available
     // Only use Vertex AI if no API key but Vertex AI credentials are available
     if (geminiApiKey) {
       try {
-        console.log('[Recommend] Using Google AI SDK (API key, primary model: gemini-flash-latest)...');
+        console.log('[Recommend] Using Google AI SDK (API key)...');
         const googleAI = await initGoogleAI();
         if (!googleAI) {
           console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
           throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
-        // Primary model – may occasionally be overloaded (503)
-        try {
-          const primaryModel = googleAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-          const primaryResult = await primaryModel.generateContent(prompt);
-          responseText = primaryResult.response.text();
-          console.log('[Recommend] Successfully got response from primary Gemini model, length:', responseText.length);
-        } catch (primaryErr) {
-          const msg = primaryErr?.message || String(primaryErr);
-          const isHighDemand503 = msg.includes('503 Service Unavailable') || msg.includes('high demand');
 
-          if (!isHighDemand503) {
-            throw primaryErr;
+        // Try a sequence of models, skipping ones that are overloaded (503) or unavailable,
+        // so we degrade gracefully instead of always failing on a single hot model.
+        // Use only models that are valid for the v1beta generateContent API.
+        const modelCandidates = ['gemini-2.5-flash', 'gemini-flash-latest'];
+        let lastError = null;
+
+        for (const modelId of modelCandidates) {
+          try {
+            console.log('[Recommend] Trying Gemini model:', modelId);
+            const model = googleAI.getGenerativeModel({ model: modelId });
+            const result = await model.generateContent(prompt);
+            responseText = result.response.text();
+            console.log('[Recommend] Successfully got response from Gemini model', modelId, 'length:', responseText.length);
+            lastError = null;
+            break;
+          } catch (modelErr) {
+            lastError = modelErr;
+            const msg = modelErr?.message || String(modelErr);
+            const lower = msg.toLowerCase();
+            const isHighDemand503 =
+              msg.includes('503 Service Unavailable') ||
+              lower.includes('high demand') ||
+              lower.includes('overloaded');
+            const isNotFound404 =
+              msg.includes('404 Not Found') ||
+              lower.includes('not found') ||
+              lower.includes('is not found for api version');
+
+            console.warn('[Recommend] Gemini model failed:', modelId, '-', msg);
+
+            if (!(isHighDemand503 || isNotFound404)) {
+              // For non-capacity / non-"not found" errors (auth, quota, bad request),
+              // no point trying further models.
+              break;
+            }
+
+            // Otherwise, try the next candidate.
           }
+        }
 
-          console.warn('[Recommend] Primary Gemini model overloaded (503). Retrying with fallback model gemini-1.5-flash...');
-          const fallbackModel = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-          const fallbackResult = await fallbackModel.generateContent(prompt);
-          responseText = fallbackResult.response.text();
-          console.log('[Recommend] Successfully got response from fallback Gemini model, length:', responseText.length);
+        if (!responseText) {
+          const safeMsg = lastError?.message || 'All Gemini models failed or were overloaded';
+          throw new Error(safeMsg);
         }
       } catch (googleAIError) {
-        console.error('[Recommend] Google AI SDK failed:', googleAIError.message);
+        console.error('[Recommend] Google AI SDK failed after trying multiple models:', googleAIError.message);
         console.error('[Recommend] Error stack:', googleAIError.stack);
         // Only fall through to Vertex AI if credentials are available
         if (!hasVertexAICreds) {
-          return res.status(500).json({
-            error: 'AI service unavailable',
-            details: `Google AI SDK failed. Please check GEMINI_API_KEY in Vercel environment variables.`,
-            suggestion: 'Set GEMINI_API_KEY in Vercel Dashboard > Settings > Environment Variables'
+          // Graceful degradation: don't break the UI, just return no recommendation.
+          return res.status(200).json({
+            recommendation: null,
+            recommendations: [],
+            matchedItemId: null,
+            reasoning: 'AI temporarily unavailable. Please try again later.'
           });
         }
         console.log('[Recommend] Falling back to Vertex AI...');
