@@ -198,15 +198,9 @@ export default function MirrorTab() {
     try {
       const itemsForLook = [];
 
-      if (recommendation?.matchedItemId) {
-        const matched = historyItems.find((item) => item.id === recommendation.matchedItemId);
-        if (matched) {
-          itemsForLook.push(matched);
-        }
-      }
-
-      if (itemsForLook.length === 0 && currentItem) {
-        // Normalize currentItem to match expected structure
+      // Always prioritize the item the user is currently viewing for try-on,
+      // so the generated image matches the on-page product (e.g. the denim shirt).
+      if (currentItem) {
         itemsForLook.push({
           url: currentItem.url || currentItem.image,
           meta: currentItem.meta || {
@@ -215,6 +209,15 @@ export default function MirrorTab() {
             brand: currentItem.brand,
           },
         });
+      }
+
+      // Optionally, also include the recommended matched item as an additional garment
+      // that Gemini can consider as context/accessory.
+      if (recommendation?.matchedItemId) {
+        const matched = historyItems.find((item) => item.id === recommendation.matchedItemId);
+        if (matched) {
+          itemsForLook.push(matched);
+        }
       }
 
       // Normalize all items to ensure they have at least url and meta
