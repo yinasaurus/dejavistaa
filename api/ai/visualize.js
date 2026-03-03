@@ -209,9 +209,12 @@ export default async function handler(req, res) {
         });
 
         const primaryGarmentUrl = garmentImageUrls[0];
+        const primaryGarmentTitle =
+          items?.[0]?.meta?.title || items?.[0]?.title || 'the current product';
         const posesFromGemini = await generateTryOnWithGemini({
           referenceImageUrl,
           garmentImageUrl: primaryGarmentUrl,
+          garmentTitle: primaryGarmentTitle,
         });
 
         if (posesFromGemini.length) {
@@ -276,7 +279,7 @@ function runSimulationFallback(res, { jobId, referenceImageUrl, items }) {
  * Combines the user's reference body photo + one garment image into a new image.
  * Returns an array of pose objects compatible with MirrorTab (id + imageUrl).
  */
-async function generateTryOnWithGemini({ referenceImageUrl, garmentImageUrl }) {
+async function generateTryOnWithGemini({ referenceImageUrl, garmentImageUrl, garmentTitle }) {
   if (!geminiApiKey) {
     console.warn('[Visualize] generateTryOnWithGemini called without GEMINI_API_KEY');
     return [];
@@ -313,7 +316,7 @@ async function generateTryOnWithGemini({ referenceImageUrl, garmentImageUrl }) {
       },
     },
     {
-      text: 'Create a professional e-commerce fashion photo. Take the garment from the second image and put it on the person from the first image. Maintain the person’s face and body but adjust lighting and shadows so the outfit looks naturally worn. Full-body, studio-style, neutral background.',
+      text: `Create a professional e-commerce fashion photo. The second image shows the exact garment: ${garmentTitle}. Put THAT garment (shape, color, fabric) onto the person from the first image. Remove or replace any existing outerwear from the first image so the new garment is clearly visible. Keep the person’s face and body, but adjust lighting and shadows so the outfit looks naturally worn. Full-body, studio-style, neutral background. The garment in the final image must clearly match the second image, not the original clothing in the first image.`,
     },
   ];
 
