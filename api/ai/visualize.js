@@ -104,9 +104,13 @@ export default async function handler(req, res) {
     const referenceImageUrl = signedData.signedUrl;
 
     // Collect garment image URLs from the items array
+    // Prefer explicit image fields over generic page URLs to avoid 403s
+    // when sites block direct HTML/product-page fetching.
     const garmentImageUrls = items
-      .map((i) => i.url || i.image || i.meta?.image)
-      .filter(Boolean);
+      .map((i) => i.meta?.image || i.image || i.url)
+      .filter((u) => typeof u === 'string' && /^https?:\/\//.test(u));
+
+    console.log('[Visualize] Normalized garment image URLs:', garmentImageUrls.slice(0, 3));
 
     if (garmentImageUrls.length === 0) {
       console.warn('[Visualize] No garment image URLs found in items, falling back to simulation mode');
