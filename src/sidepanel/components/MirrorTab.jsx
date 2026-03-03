@@ -454,9 +454,15 @@ export default function MirrorTab() {
               <div
                 key={item.id}
                 className="card"
+                onClick={() => {
+                  if (item.url) {
+                    window.open(item.url, '_blank', 'noopener,noreferrer');
+                  }
+                }}
                 style={{
                   minWidth: 120,
                   padding: 8,
+                  cursor: item.url ? 'pointer' : 'default',
                 }}
               >
                 {item.meta?.image && (

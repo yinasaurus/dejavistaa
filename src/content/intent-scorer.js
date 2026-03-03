@@ -133,6 +133,95 @@
       if (h1) meta.title = h1.textContent.trim();
     }
 
+    // Normalize base product name, then add dynamic color from the page.
+    let baseTitle = meta.title || '';
+    if (baseTitle) {
+      // Drop site suffix after "|"
+      const pipeIdx = baseTitle.indexOf('|');
+      baseTitle = pipeIdx !== -1 ? baseTitle.slice(0, pipeIdx).trim() : baseTitle.trim();
+
+      // If there are multiple " - " segments, keep only the first part (product name)
+      const dashParts = baseTitle.split(' - ');
+      if (dashParts.length > 1) {
+        baseTitle = dashParts[0].trim();
+      }
+    }
+
+    // --- Color detection (site-aware, with generic fallback) ---
+    function detectCurrentColor() {
+      const host = (window.location.hostname || '').toLowerCase();
+
+      // Helper to read first non-empty textContent from a list of selectors
+      const readFromSelectors = (selectors) => {
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el && el.textContent) {
+            const txt = el.textContent.trim();
+            if (txt) return txt;
+          }
+        }
+        return null;
+      };
+
+      // H&M
+      if (host.includes('hm.com')) {
+        const hmColor =
+          readFromSelectors(['[data-testid*="color" i]', '[data-test*="color" i]']) || null;
+        if (hmColor) return hmColor;
+      }
+
+      // Uniqlo
+      if (host.includes('uniqlo.com')) {
+        const uniqloColor = readFromSelectors([
+          '[data-test="color-name"]',
+          '[class*="color-name" i]',
+          '[class*="current-color" i]',
+        ]);
+        if (uniqloColor) return uniqloColor;
+      }
+
+      // Zara
+      if (host.includes('zara.com')) {
+        const zaraColor = readFromSelectors([
+          '.product-detail-color-name',
+          '[data-qa*="color-name" i]',
+        ]);
+        if (zaraColor) return zaraColor;
+      }
+
+      // ASOS
+      if (host.includes('asos.com')) {
+        const asosColor = readFromSelectors([
+          '[data-test-id="colour-selection"]',
+          '[class*="colour" i] span',
+        ]);
+        if (asosColor) return asosColor;
+      }
+
+      // Generic fallback: H&M-style "COLOR: <name>" anywhere in the body
+      const allEls = Array.from(document.querySelectorAll('body *'));
+      const colorContainer = allEls.find((el) =>
+        /COLOR\s*:/i.test(el.textContent || '')
+      );
+      if (colorContainer) {
+        const match = colorContainer.textContent.match(/COLOR\s*:\s*(.+)$/i);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      }
+
+      return null;
+    }
+
+    const currentColor = detectCurrentColor();
+
+    meta.color = currentColor || null;
+    meta.title = baseTitle
+      ? currentColor
+        ? `${baseTitle} - ${currentColor}`
+        : baseTitle
+      : currentColor || baseTitle;
+
     // Price
     const pricePattern = /[\$£€¥]\s*[\d,]+\.?\d*/g; // Global search
     const bodyTextRaw = document.body.textContent;
