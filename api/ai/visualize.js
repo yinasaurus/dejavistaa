@@ -1,8 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Simple simulation mode: use Supabase signed URLs and return multiple "poses"
+// Supabase is always used to store / fetch the user's reference photo
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+// Optional: third‑party / custom virtual try‑on service
+// e.g. your Nanobanana endpoint / key, or any other provider
+// Configure in dejavistaa/.env:
+//   TRYON_API_URL=https://your-tryon-provider.com/v1/tryon
+//   TRYON_API_KEY=sk_...
+const tryOnApiUrl = process.env.TRYON_API_URL;
+const tryOnApiKey = process.env.TRYON_API_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -19,39 +27,40 @@ export default async function handler(req, res) {
     userId: userId ? userId.substring(0, 8) + '...' : 'missing',
     hasItems: !!items,
     itemsLength: items?.length || 0,
-    itemsPreview: items?.slice(0, 2).map(i => ({ 
-      hasUrl: !!i.url, 
+    itemsPreview: items?.slice(0, 2).map((i) => ({
+      hasUrl: !!i.url,
       hasImage: !!i.image,
-      hasMeta: !!i.meta, 
+      hasMeta: !!i.meta,
       title: i.meta?.title || i.title,
-      keys: Object.keys(i || {})
-    }))
+      keys: Object.keys(i || {}),
+    })),
+    hasTryOnApiUrl: !!tryOnApiUrl,
   });
 
   // Validate userId
   if (!userId || typeof userId !== 'string' || userId.trim() === '') {
-    return res.status(400).json({ 
+    return res.status(400).json({
       error: 'Missing required field: userId (must be a non-empty string)',
-      received: { 
-        hasUserId: !!userId, 
+      received: {
+        hasUserId: !!userId,
         userIdType: typeof userId,
-        hasItems: !!items, 
-        itemsLength: items?.length || 0 
-      }
+        hasItems: !!items,
+        itemsLength: items?.length || 0,
+      },
     });
   }
 
   // Validate items array
   if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       error: 'Missing required field: items (must be a non-empty array)',
-      received: { 
-        hasUserId: true, 
-        userId: userId.substring(0, 8) + '...', 
+      received: {
+        hasUserId: true,
+        userId: userId.substring(0, 8) + '...',
         hasItems: !!items,
         itemsType: Array.isArray(items) ? 'array' : typeof items,
-        itemsLength: items?.length || 0 
-      }
+        itemsLength: items?.length || 0,
+      },
     });
   }
 
@@ -75,7 +84,7 @@ export default async function handler(req, res) {
     }
 
     // Generate a signed URL for the reference photo
-    console.log('[Visualize] Generating signed URL for simulation');
+    console.log('[Visualize] Generating signed URL for reference photo');
     const { data: signedData, error: signedError } = await supabase.storage
       .from('user_photos')
       .createSignedUrl(photoPath, 3600); // 1 hour link
@@ -85,22 +94,106 @@ export default async function handler(req, res) {
       throw signedError;
     }
 
-    console.log('[Visualize] Simulation complete. Signed URL generated.');
+    const referenceImageUrl = signedData.signedUrl;
 
-    // Fake multiple poses by reusing the same signed URL with different IDs
-    const poses = [
-      { id: 'front', imageUrl: signedData.signedUrl },
-      { id: 'side', imageUrl: signedData.signedUrl },
-      { id: 'back', imageUrl: signedData.signedUrl },
-    ];
+    // Collect garment image URLs from the items array
+    const garmentImageUrls = items
+      .map((i) => i.url || i.image || i.meta?.image)
+      .filter(Boolean);
 
-    return res.status(200).json({
+    if (garmentImageUrls.length === 0) {
+      console.warn('[Visualize] No garment image URLs found in items, falling back to simulation mode');
+      return runSimulationFallback(res, {
+        jobId,
+        referenceImageUrl,
+        items,
+      });
+    }
+
+    // If a real try‑on API is configured, call it to generate combined images
+    if (tryOnApiUrl && tryOnApiKey) {
+      try {
+        console.log('[Visualize] Calling external try-on API...', {
+          url: tryOnApiUrl,
+          garments: garmentImageUrls.length,
+        });
+
+        // NOTE: Shape this payload to match your provider's contract.
+        // This is a generic example that most REST APIs can adapt to.
+        const apiResponse = await fetch(tryOnApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tryOnApiKey}`,
+          },
+          body: JSON.stringify({
+            userId,
+            referenceImageUrl,
+            garmentImageUrls,
+          }),
+        });
+
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text().catch(() => '');
+          console.error('[Visualize] Try-on API error:', apiResponse.status, errorText);
+          throw new Error(`Try-on API failed with status ${apiResponse.status}`);
+        }
+
+        const apiData = await apiResponse.json();
+
+        // Expect either an array of poses or a single image URL from the provider
+        let poses = [];
+        if (Array.isArray(apiData.poses)) {
+          poses = apiData.poses
+            .map((p, idx) => ({
+              id: p.id || `pose-${idx}`,
+              imageUrl: p.imageUrl || p.url,
+            }))
+            .filter((p) => !!p.imageUrl);
+        } else if (apiData.imageUrl || apiData.url) {
+          poses = [
+            {
+              id: 'main',
+              imageUrl: apiData.imageUrl || apiData.url,
+            },
+          ];
+        }
+
+        if (!poses.length) {
+          console.warn('[Visualize] Try-on API returned no usable poses, falling back to simulation mode');
+          return runSimulationFallback(res, {
+            jobId,
+            referenceImageUrl,
+            items,
+          });
+        }
+
+        console.log('[Visualize] Try-on API succeeded with', poses.length, 'poses');
+
+        return res.status(200).json({
+          jobId,
+          status: 'complete',
+          poses,
+          message: 'Virtual try-on generated via external API.',
+          itemsProcessed: items.map((i) => i.meta?.title || i.title || 'Item'),
+        });
+      } catch (apiError) {
+        console.error('[Visualize] Fatal error calling try-on API, using simulation fallback:', apiError);
+        // Fall through to simulation
+        return runSimulationFallback(res, {
+          jobId,
+          referenceImageUrl,
+          items,
+        });
+      }
+    }
+
+    // If no TRYON_API_URL / TRYON_API_KEY configured, keep old simulation behaviour
+    console.log('[Visualize] TRYON_API_URL/TRYON_API_KEY not set, using simulation mode');
+    return runSimulationFallback(res, {
       jobId,
-      status: 'complete',
-      poses,
-      message:
-        'Simulation mode: using your reference photo with multiple pose slots (same image for now).',
-      itemsProcessed: items.map((i) => i.meta?.title || i.title || 'Item'),
+      referenceImageUrl,
+      items,
     });
   } catch (error) {
     console.error('[Visualize] Fatal error during visualization:', error);
@@ -109,4 +202,28 @@ export default async function handler(req, res) {
       details: error.message,
     });
   }
+}
+
+/**
+ * Legacy / fallback behaviour: reuse the reference photo URL for multiple fake poses.
+ * This keeps the UI working even if a real try-on provider is not configured
+ * or temporarily failing.
+ */
+function runSimulationFallback(res, { jobId, referenceImageUrl, items }) {
+  console.log('[Visualize] Running simulation fallback');
+
+  const poses = [
+    { id: 'front', imageUrl: referenceImageUrl },
+    { id: 'side', imageUrl: referenceImageUrl },
+    { id: 'back', imageUrl: referenceImageUrl },
+  ];
+
+  return res.status(200).json({
+    jobId,
+    status: 'complete',
+    poses,
+    message:
+      'Simulation mode: using your reference photo with multiple pose slots (same image for now).',
+    itemsProcessed: items.map((i) => i.meta?.title || i.title || 'Item'),
+  });
 }
