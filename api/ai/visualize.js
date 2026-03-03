@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
+import { GoogleGenAI } from '@google/genai';
+import { Buffer } from 'node:buffer';
 
 // Supabase is always used to store / fetch the user's reference photo
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
+// Gemini / Nano Banana image generation (direct, no external try-on API needed)
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image-preview';
+
 // Optional: third‑party / custom virtual try‑on service
 // e.g. your Nanobanana endpoint / key, or any other provider
-// Configure in dejavistaa/.env:
+// Configure in dejavistaa/.env if you want to use an external API instead of Gemini:
 //   TRYON_API_URL=https://your-tryon-provider.com/v1/tryon
 //   TRYON_API_KEY=sk_...
 const tryOnApiUrl = process.env.TRYON_API_URL;
@@ -35,6 +41,7 @@ export default async function handler(req, res) {
       keys: Object.keys(i || {}),
     })),
     hasTryOnApiUrl: !!tryOnApiUrl,
+    hasGeminiKey: !!geminiApiKey,
   });
 
   // Validate userId
@@ -188,8 +195,40 @@ export default async function handler(req, res) {
       }
     }
 
-    // If no TRYON_API_URL / TRYON_API_KEY configured, keep old simulation behaviour
-    console.log('[Visualize] TRYON_API_URL/TRYON_API_KEY not set, using simulation mode');
+    // If no external TRYON_API_URL / TRYON_API_KEY configured, but we *do* have
+    // a Gemini image key, call Nano Banana (Gemini image) directly to compose
+    // the reference body + garment image into a new try-on image.
+    if (geminiApiKey) {
+      try {
+        console.log('[Visualize] Using Gemini image model for virtual try-on...', {
+          model: GEMINI_IMAGE_MODEL,
+        });
+
+        const primaryGarmentUrl = garmentImageUrls[0];
+        const posesFromGemini = await generateTryOnWithGemini({
+          referenceImageUrl,
+          garmentImageUrl: primaryGarmentUrl,
+        });
+
+        if (posesFromGemini.length) {
+          console.log('[Visualize] Gemini image generation succeeded with', posesFromGemini.length, 'pose(s)');
+          return res.status(200).json({
+            jobId,
+            status: 'complete',
+            poses: posesFromGemini,
+            message: 'Virtual try-on generated with Gemini image model (Nano Banana).',
+            itemsProcessed: items.map((i) => i.meta?.title || i.title || 'Item'),
+          });
+        }
+
+        console.warn('[Visualize] Gemini image generation returned no poses, falling back to simulation mode');
+      } catch (geminiError) {
+        console.error('[Visualize] Gemini image generation failed, falling back to simulation mode:', geminiError);
+      }
+    }
+
+    // If neither external API nor Gemini image generation succeeds, keep old simulation behaviour
+    console.log('[Visualize] No working try-on provider, using simulation mode');
     return runSimulationFallback(res, {
       jobId,
       referenceImageUrl,
@@ -226,4 +265,84 @@ function runSimulationFallback(res, { jobId, referenceImageUrl, items }) {
       'Simulation mode: using your reference photo with multiple pose slots (same image for now).',
     itemsProcessed: items.map((i) => i.meta?.title || i.title || 'Item'),
   });
+}
+
+/**
+ * Generate a single try-on image using Gemini Nano Banana image model.
+ * Combines the user's reference body photo + one garment image into a new image.
+ * Returns an array of pose objects compatible with MirrorTab (id + imageUrl).
+ */
+async function generateTryOnWithGemini({ referenceImageUrl, garmentImageUrl }) {
+  if (!geminiApiKey) {
+    console.warn('[Visualize] generateTryOnWithGemini called without GEMINI_API_KEY');
+    return [];
+  }
+
+  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+
+  // Helper: fetch image from URL and convert to base64 string
+  async function fetchAsBase64(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch image (${resp.status}) from ${url}`);
+    }
+    const arrayBuffer = await resp.arrayBuffer();
+    return Buffer.from(arrayBuffer).toString('base64');
+  }
+
+  const [referenceBase64, garmentBase64] = await Promise.all([
+    fetchAsBase64(referenceImageUrl),
+    fetchAsBase64(garmentImageUrl),
+  ]);
+
+  const prompt = [
+    {
+      inlineData: {
+        mimeType: 'image/jpeg',
+        data: referenceBase64,
+      },
+    },
+    {
+      inlineData: {
+        mimeType: 'image/jpeg',
+        data: garmentBase64,
+      },
+    },
+    {
+      text: 'Create a professional e-commerce fashion photo. Take the garment from the second image and put it on the person from the first image. Maintain the person’s face and body but adjust lighting and shadows so the outfit looks naturally worn. Full-body, studio-style, neutral background.',
+    },
+  ];
+
+  const response = await ai.models.generateContent({
+    model: GEMINI_IMAGE_MODEL,
+    contents: prompt,
+    config: {
+      responseModalities: ['IMAGE'],
+      imageConfig: {
+        aspectRatio: '3:4',
+        imageSize: '1K',
+      },
+    },
+  });
+
+  const poses = [];
+
+  const candidate = response.candidates?.[0];
+  if (!candidate || !candidate.content?.parts) {
+    console.warn('[Visualize] Gemini image response missing candidates/parts');
+    return poses;
+  }
+
+  for (const part of candidate.content.parts) {
+    if (part.inlineData && part.inlineData.data) {
+      const imageData = part.inlineData.data;
+      const dataUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${imageData}`;
+      poses.push({
+        id: poses.length === 0 ? 'main' : `alt-${poses.length}`,
+        imageUrl: dataUrl,
+      });
+    }
+  }
+
+  return poses;
 }
