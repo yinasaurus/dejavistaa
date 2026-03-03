@@ -93,17 +93,32 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
     // Only use Vertex AI if no API key but Vertex AI credentials are available
     if (geminiApiKey) {
       try {
-        console.log('[Recommend] Using Google AI SDK (API key, model: gemini-flash-latest)...');
+        console.log('[Recommend] Using Google AI SDK (API key, primary model: gemini-flash-latest)...');
         const googleAI = await initGoogleAI();
         if (!googleAI) {
           console.error('[Recommend] Google AI SDK returned null - check GEMINI_API_KEY');
           throw new Error('Google AI SDK initialization returned null - verify GEMINI_API_KEY is set correctly');
         }
-        // Use the same model your curl example uses
-        const model = googleAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-        const result = await model.generateContent(prompt);
-        responseText = result.response.text();
-        console.log('[Recommend] Successfully got response from Google AI SDK, length:', responseText.length);
+        // Primary model – may occasionally be overloaded (503)
+        try {
+          const primaryModel = googleAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+          const primaryResult = await primaryModel.generateContent(prompt);
+          responseText = primaryResult.response.text();
+          console.log('[Recommend] Successfully got response from primary Gemini model, length:', responseText.length);
+        } catch (primaryErr) {
+          const msg = primaryErr?.message || String(primaryErr);
+          const isHighDemand503 = msg.includes('503 Service Unavailable') || msg.includes('high demand');
+
+          if (!isHighDemand503) {
+            throw primaryErr;
+          }
+
+          console.warn('[Recommend] Primary Gemini model overloaded (503). Retrying with fallback model gemini-1.5-flash...');
+          const fallbackModel = googleAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+          const fallbackResult = await fallbackModel.generateContent(prompt);
+          responseText = fallbackResult.response.text();
+          console.log('[Recommend] Successfully got response from fallback Gemini model, length:', responseText.length);
+        }
       } catch (googleAIError) {
         console.error('[Recommend] Google AI SDK failed:', googleAIError.message);
         console.error('[Recommend] Error stack:', googleAIError.stack);
