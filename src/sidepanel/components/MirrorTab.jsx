@@ -305,6 +305,26 @@ export default function MirrorTab() {
     }
   };
 
+  const openItemUrl = (url) => {
+    if (!url) return;
+    try {
+      if (chrome?.tabs?.query && chrome?.tabs?.update && chrome?.tabs?.create) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          const activeTab = tabs && tabs[0];
+          if (activeTab) {
+            chrome.tabs.update(activeTab.id, { url });
+          } else {
+            chrome.tabs.create({ url });
+          }
+        });
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (e) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   // Restore cached try-on result when returning to Mirror for the same product
   useEffect(() => {
     const restoreCachedTryOn = async () => {
@@ -495,7 +515,7 @@ export default function MirrorTab() {
                 className="card"
                 onClick={() => {
                   if (item.url) {
-                    window.open(item.url, '_blank', 'noopener,noreferrer');
+                    openItemUrl(item.url);
                   }
                 }}
                 style={{
@@ -533,7 +553,7 @@ export default function MirrorTab() {
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.open(item.url, '_blank', 'noopener,noreferrer');
+                      openItemUrl(item.url);
                     }}
                   >
                     View item

@@ -211,14 +211,30 @@ export default async function handler(req, res) {
         const primaryGarmentUrl = garmentImageUrls[0];
         const primaryGarmentTitle =
           items?.[0]?.meta?.title || items?.[0]?.title || 'the current product';
-        const posesFromGemini = await generateTryOnWithGemini({
-          referenceImageUrl,
-          garmentImageUrl: primaryGarmentUrl,
-          garmentTitle: primaryGarmentTitle,
-        });
 
-        if (posesFromGemini.length) {
-          console.log('[Visualize] Gemini image generation succeeded with', posesFromGemini.length, 'pose(s)');
+        // Guard against very slow Gemini responses by enforcing our own timeout
+        // that is comfortably below the Vercel function timeout limit.
+        const MAX_AI_MS = 9000;
+        const posesFromGemini = await Promise.race([
+          generateTryOnWithGemini({
+            referenceImageUrl,
+            garmentImageUrl: primaryGarmentUrl,
+            garmentTitle: primaryGarmentTitle,
+          }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Gemini image generation exceeded ${MAX_AI_MS}ms timeout`)),
+              MAX_AI_MS
+            )
+          ),
+        ]);
+
+        if (Array.isArray(posesFromGemini) && posesFromGemini.length) {
+          console.log(
+            '[Visualize] Gemini image generation succeeded with',
+            posesFromGemini.length,
+            'pose(s)'
+          );
           return res.status(200).json({
             jobId,
             status: 'complete',
@@ -228,13 +244,19 @@ export default async function handler(req, res) {
           });
         }
 
-        console.warn('[Visualize] Gemini image generation returned no poses, falling back to simulation mode');
+        console.warn(
+          '[Visualize] Gemini image generation returned no poses, falling back to simulation mode'
+        );
       } catch (geminiError) {
-        console.error('[Visualize] Gemini image generation failed, falling back to simulation mode:', geminiError);
+        console.error(
+          '[Visualize] Gemini image generation failed or timed out, falling back to simulation mode:',
+          geminiError
+        );
       }
     }
 
-    // If neither external API nor Gemini image generation succeeds, keep old simulation behaviour
+    // If neither external API nor Gemini image generation succeeds in time,
+    // keep old simulation behaviour so the UI never sees a 5xx/504.
     console.log('[Visualize] No working try-on provider, using simulation mode');
     return runSimulationFallback(res, {
       jobId,
