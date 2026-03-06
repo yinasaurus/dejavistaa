@@ -275,6 +275,14 @@ export default function MirrorTab() {
       setPoses(newPoses);
       setSelectedPose(newPoses[0] || null);
 
+      // If backend fell back to simulation mode, surface a gentle warning
+      if (data.message && data.message.toLowerCase().includes('simulation mode')) {
+        showToast(
+          'AI try-on was slow or unavailable, so we showed your original photo instead. You can try again later.',
+          'warning'
+        );
+      }
+
       // Cache latest try-on result so it can be restored when coming
       // back from other tabs (e.g. Memory → Mirror) without re-running.
       try {

@@ -198,13 +198,13 @@
         if (asosColor) return asosColor;
       }
 
-      // Generic fallback: H&M-style "COLOR: <name>" anywhere in the body
+      // Generic fallback: "COLOR: <name>" / "COLOUR: <name>" anywhere in the body
       const allEls = Array.from(document.querySelectorAll('body *'));
       const colorContainer = allEls.find((el) =>
-        /COLOR\s*:/i.test(el.textContent || '')
+        /COLOU?R\s*:/i.test(el.textContent || '')
       );
       if (colorContainer) {
-        const match = colorContainer.textContent.match(/COLOR\s*:\s*(.+)$/i);
+        const match = colorContainer.textContent.match(/COLOU?R\s*:\s*(.+)$/i);
         if (match && match[1]) {
           return match[1].trim();
         }
@@ -227,11 +227,22 @@
     const bodyTextRaw = document.body.textContent;
     const matches = bodyTextRaw.match(pricePattern);
 
-    if (matches) {
-      // Find the first price that isn't "$1" or similar junk
-      const realPrice = matches.find((p) => !p.match(/^[\$£€¥]\s*1$/));
-      if (realPrice) {
-        meta.price = realPrice;
+    if (matches && matches.length) {
+      // Parse all price-like tokens and choose the highest numeric value.
+      // This avoids picking small coupon amounts like "$7 off" when the
+      // actual product price is much higher (common on Uniqlo and others).
+      const numericValues = matches
+        .map((p) => {
+          const num = parseFloat(p.replace(/[^\d.]/g, ''));
+          return Number.isNaN(num) ? null : num;
+        })
+        .filter((n) => n !== null);
+
+      if (numericValues.length) {
+        const maxValue = Math.max(...numericValues);
+        const idx = numericValues.indexOf(maxValue);
+        const chosen = matches[idx] || matches[0];
+        meta.price = chosen;
       }
     }
 
