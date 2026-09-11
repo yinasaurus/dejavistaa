@@ -15,7 +15,7 @@ Chrome extension that remembers what you browse on fashion sites and uses GenAI 
 
 - **Passive tracking** of clothing items on supported fashion sites  
 - **AI recommendations** from your Supabase‑backed "closet" history  
-- **Virtual try‑on (simulated)** – currently reuses your reference photo in different “poses”  
+- **Virtual try‑on** – Gemini generates a try-on image of the current product on your reference photo. If generation is slow or unavailable, the API falls back to showing that same reference photo in placeholder pose slots. This is prompt-based image generation, not body-mapped AR.  
 - **Privacy controls**: incognito toggle + one‑click "Purge Memory"
 
 ---
@@ -75,7 +75,8 @@ In the Vercel project that serves `https://dejavistaa.vercel.app`, under **Setti
 
 - **Gemini / Google AI (API‑key path)**  
   - `GEMINI_API_KEY = <key from https://aistudio.google.com>`  
-  - The recommendation and photo‑validation routes use model `gemini-flash-latest`.
+  - `api/ai/recommend` and `api/ai/validate-photo` use `gemini-flash-latest` (recommend also tries `gemini-2.5-flash` first).  
+  - `api/ai/visualize` uses `gemini-3.1-flash-image` (Nano Banana 2) for try-on images.
 
 - **Optional Vertex AI (service‑account path)**  
   - `GOOGLE_CLOUD_PROJECT_ID = your‑gcp‑project‑id`  
@@ -91,9 +92,9 @@ After changing env vars, redeploy the latest Production build in Vercel.
 - Extension UI (side panel) talks to:
   - **Supabase** for auth, history (`closet_items`), and `user_photos/<userId>/reference.jpg`.
   - **Vercel APIs**:
-    - `api/ai/recommend` → uses `GEMINI_API_KEY` with `gemini-flash-latest` to pick one matching item from history.  
-    - `api/ai/validate-photo` → checks your reference photo quality using the same API key.  
-    - `api/ai/visualize` → currently returns simulated poses using your stored reference photo.
+    - `api/ai/recommend` → uses `GEMINI_API_KEY` to pick one matching item from closet history.  
+    - `api/ai/validate-photo` → checks that the reference photo is a usable full-body shot.  
+    - `api/ai/visualize` → Gemini image model composes the stored reference photo + the current garment into a try-on image. On timeout, missing garment URLs, or Gemini failure, it returns the reference photo reused across pose slots so the UI does not 504. That fallback is not AR and does not map clothes onto a body mesh.
 
 ---
 
@@ -102,7 +103,7 @@ After changing env vars, redeploy the latest Production build in Vercel.
 - **Extension UI:** React + Vite + Chrome side panel  
 - **Backend:** Vercel serverless functions (`api/ai/*`)  
 - **Data:** Supabase (Postgres + Storage + Auth)  
-- **AI:** Google Gemini (`gemini-flash-latest`, optional Vertex AI)
+- **AI:** Google Gemini (`gemini-flash-latest` for text/vision, `gemini-3.1-flash-image` for try-on, optional Vertex AI)
 
 ### **8. License**
 

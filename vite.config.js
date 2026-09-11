@@ -10,17 +10,17 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@': resolve(__dirname, './src'),
+        '@': resolve(import.meta.dirname, './src'),
       },
     },
     build: {
       outDir: 'dist',
       rollupOptions: {
         input: {
-          sidepanel: resolve(__dirname, 'src/sidepanel/sidepanel.html'),
-          background: resolve(__dirname, 'src/background/background.js'),
-          'content/gaze-tracker': resolve(__dirname, 'src/content/gaze-tracker.js'),
-          'content/intent-scorer': resolve(__dirname, 'src/content/intent-scorer.js'),
+          sidepanel: resolve(import.meta.dirname, 'src/sidepanel/sidepanel.html'),
+          background: resolve(import.meta.dirname, 'src/background/background.js'),
+          'content/gaze-tracker': resolve(import.meta.dirname, 'src/content/gaze-tracker.js'),
+          'content/intent-scorer': resolve(import.meta.dirname, 'src/content/intent-scorer.js'),
         },
         output: {
           entryFileNames: (chunkInfo) => {

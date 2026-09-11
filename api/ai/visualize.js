@@ -8,7 +8,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 // Gemini / Nano Banana image generation (direct, no external try-on API needed)
 const geminiApiKey = process.env.GEMINI_API_KEY;
-const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image-preview';
+const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image';
 
 // Optional: third‑party / custom virtual try‑on service
 // e.g. your Nanobanana endpoint / key, or any other provider
