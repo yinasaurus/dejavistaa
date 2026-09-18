@@ -24,7 +24,7 @@ const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY') ||
                           '';
 const VERCEL_API_URL = getEnvVar('VITE_VERCEL_API_URL') || 
                        import.meta.env?.VITE_VERCEL_API_URL || 
-                       'https://dejavista.vercel.app';
+                       'https://dejavistaa.vercel.app';
 
 // Log warning if environment variables are missing
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {

@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
-      'import.meta.env.VITE_VERCEL_API_URL': JSON.stringify(env.VITE_VERCEL_API_URL || 'https://dejavista.vercel.app'),
+      'import.meta.env.VITE_VERCEL_API_URL': JSON.stringify(env.VITE_VERCEL_API_URL || 'https://dejavistaa.vercel.app'),
       'import.meta.env.DEV': JSON.stringify(mode === 'development'),
       'import.meta.env.PROD': JSON.stringify(mode === 'production'),
       'import.meta.env.MODE': JSON.stringify(mode),

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { VERCEL_API_URL } from '../utils/env';
+import { aiFetch } from '../utils/api';
 
 export default function SettingsTab() {
   const { user, supabase, signIn, signOut } = useAuth();
@@ -65,10 +65,8 @@ export default function SettingsTab() {
 
       // 2. Validate with AI
       console.log('[Settings] Validating photo with AI...');
-      const validateRes = await fetch(`${VERCEL_API_URL}/api/ai/validate-photo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image })
+      const validateRes = await aiFetch(supabase, '/api/ai/validate-photo', {
+        image: base64Image,
       });
 
       if (!validateRes.ok) {
@@ -143,11 +141,17 @@ export default function SettingsTab() {
         showToast('Could not delete photo (check permissions)', 'error');
       }
 
-      // Clear local cache
+      const keep = await chrome.storage.local.get([
+        'supabaseSession',
+        'supabaseUrl',
+        'supabaseAnonKey',
+        'incognitoMode',
+      ]);
       await chrome.storage.local.clear();
-
-      // Signal photo purged (for other components like MirrorTab)
-      await chrome.storage.local.set({ photoPurged: Date.now() });
+      await chrome.storage.local.set({
+        ...keep,
+        photoPurged: Date.now(),
+      });
 
       showToast('Memory purged successfully', 'success');
       setPhotoPreview(null);

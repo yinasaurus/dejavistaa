@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import { Buffer } from 'node:buffer';
+import { requireUser } from './utils/session.js';
 
 // Supabase is always used to store / fetch the user's reference photo
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -27,6 +28,9 @@ export default async function handler(req, res) {
 
   // Expect the user ID (to locate the stored reference photo) and one or more items
   const { userId, items } = req.body;
+
+  const authedUser = await requireUser(req, res, { expectedUserId: userId });
+  if (!authedUser) return;
 
   console.log('[Visualize] Request received:', {
     hasUserId: !!userId,
@@ -214,7 +218,7 @@ export default async function handler(req, res) {
 
         // Guard against very slow Gemini responses by enforcing our own timeout
         // that is comfortably below the Vercel function timeout limit.
-        const MAX_AI_MS = 9000;
+        const MAX_AI_MS = 40000;
         const posesFromGemini = await Promise.race([
           generateTryOnWithGemini({
             referenceImageUrl,

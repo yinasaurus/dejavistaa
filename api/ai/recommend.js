@@ -1,11 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import { getVertexAIAuthOptions, initGoogleAI } from './utils/auth.js';
+import { requireUser } from './utils/session.js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 const geminiApiKey = process.env.GEMINI_API_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
   // Handle CORS preflight
@@ -18,6 +14,9 @@ export default async function handler(req, res) {
   }
 
   const { currentItem, historyItems, userId } = req.body;
+
+  const authedUser = await requireUser(req, res, { expectedUserId: userId });
+  if (!authedUser) return;
 
   if (!currentItem || !historyItems || !userId) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -183,7 +182,7 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
         const { VertexAI } = await import('@google-cloud/vertexai');
         const vertexAI = new VertexAI({ project, location, ...authOptions });
         const model = vertexAI.getGenerativeModel({
-          model: 'gemini-1.5-flash-001',
+          model: 'gemini-2.5-flash',
           generationConfig: {
             maxOutputTokens: 256,
             temperature: 0.7,

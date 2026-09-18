@@ -19,37 +19,32 @@ export function AuthProvider({ children }) {
   const { showToast } = useToast();
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
     if (!supabase) {
       setLoading(false);
       return;
     }
 
-    // 2. Check Supabase Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
         chrome.storage.local.set({
-          supabaseSession: session
+          supabaseSession: session,
         });
       } else if (event === 'SIGNED_OUT') {
-        // Clear session from storage
         chrome.storage.local.remove('supabaseSession');
       }
     });
 
     return () => subscription.unsubscribe();
-  };
+  }, []);
 
   const signIn = async () => {
     if (!supabase) {

@@ -1,3 +1,5 @@
+import { requireUser } from './utils/session.js';
+
 export default async function handler(req, res) {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
@@ -7,6 +9,9 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    const authedUser = await requireUser(req, res);
+    if (!authedUser) return;
 
     const { image } = req.body; // Base64 image
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -59,7 +64,7 @@ export default async function handler(req, res) {
             console.log('[Validate] Using Vertex AI...');
             // Vision-capable model for image + text
             const model = vertexAI.getGenerativeModel({
-                model: 'gemini-1.0-pro-vision',
+                model: 'gemini-2.5-flash',
                 generationConfig: {
                     maxOutputTokens: 512,
                     temperature: 0.1, // Stricter for validation

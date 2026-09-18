@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { VERCEL_API_URL } from '../utils/env';
+import { aiFetch } from '../utils/api';
 
 export default function MirrorTab() {
   const { user, supabase } = useAuth();
@@ -156,15 +157,11 @@ export default function MirrorTab() {
     setRecommendation(null);
 
     try {
-      const response = await fetch(`${VERCEL_API_URL}/api/ai/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const response = await aiFetch(supabase, '/api/ai/recommend', {
           currentItem,
           historyItems,
           userId: user.id,
-        }),
-      });
+        });
 
       if (!response.ok) {
         const text = await response.text();
@@ -257,11 +254,7 @@ export default function MirrorTab() {
         items: itemsForLook.map(i => ({ hasUrl: !!i.url, hasMeta: !!i.meta, title: i.meta?.title || i.title }))
       });
 
-      const response = await fetch(`${VERCEL_API_URL}/api/ai/visualize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await aiFetch(supabase, '/api/ai/visualize', requestBody);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));

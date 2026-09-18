@@ -1,32 +1,32 @@
-## Google Cloud / Gemini auth (short guide)
+## Google / Gemini auth
 
-These env vars power the AI routes in `api/ai/*`.
+`api/ai/*` uses **Google AI Studio** first (`GEMINI_API_KEY`). Vertex AI is optional.
 
-### **Required variables**
-
-Set the following in Vercel **Project → Settings → Environment Variables**:
+### Required (Vercel + local `.env`)
 
 ```env
-SUPABASE_URL=...
-SUPABASE_SERVICE_KEY=...
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+GEMINI_API_KEY=your-google-ai-studio-key
+```
 
-GEMINI_API_KEY=your-google-ai-studio-api-key
+Get the Gemini key from https://aistudio.google.com/apikey
+
+### Optional Vertex fallback
+
+Only needed if you want Vertex when the API-key path fails:
+
+```env
 GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
-
-# Service account JSON as ONE LINE (no newlines)
-GOOGLE_APPLICATION_CREDENTIALS={"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...","client_email":"..."}
-
-# Optional, defaults to us-central1
+GOOGLE_APPLICATION_CREDENTIALS={"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n...","client_email":"..."}
 VERTEX_AI_LOCATION=us-central1
 ```
 
-### **How auth works**
+`GOOGLE_APPLICATION_CREDENTIALS` must be **valid JSON on one line**.
 
-- **First try:** Vertex AI using `GOOGLE_APPLICATION_CREDENTIALS` + `GOOGLE_CLOUD_PROJECT_ID`  
-- **Fallback:** Google AI SDK using `GEMINI_API_KEY` if Vertex fails or creds are missing
+### How auth works
 
-### **Quick troubleshooting**
+1. **Gemini API key** (`GEMINI_API_KEY`) — this is what production uses.
+2. **Vertex AI** only if the key path fails *and* service-account JSON is set.
 
-- 500s mentioning auth → check that `GOOGLE_APPLICATION_CREDENTIALS` is **valid JSON on one line**.  
-- AI calls silently falling back → see Vercel logs for `[Auth]` / `[Recommend]` messages.  
-- If both methods fail you’ll see errors like _“Neither Vertex AI nor Google AI SDK available”_ – re-check all vars above.
+The Chrome extension must also send the user's Supabase access token (`Authorization: Bearer …`). Unsigned calls return 401.

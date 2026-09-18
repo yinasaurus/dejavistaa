@@ -47,7 +47,7 @@ npm run build
   - In **Settings → API** copy:
     - Project URL → `VITE_SUPABASE_URL` and `SUPABASE_URL`
     - `anon` key → `VITE_SUPABASE_ANON_KEY`
-    - `service_role` key → `SUPABASE_SERVICE_KEY` (backend only, never in `.env`).
+    - `service_role` key → `SUPABASE_SERVICE_KEY` (local `.env` and Vercel only — never prefix with `VITE_`, never commit it).
 
 - **Database tables + RLS**
   - In **SQL editor**, run `database/001_closet_items.sql` once per project.
@@ -94,7 +94,7 @@ After changing env vars, redeploy the latest Production build in Vercel.
   - **Vercel APIs**:
     - `api/ai/recommend` → uses `GEMINI_API_KEY` to pick one matching item from closet history.  
     - `api/ai/validate-photo` → checks that the reference photo is a usable full-body shot.  
-    - `api/ai/visualize` → Gemini image model composes the stored reference photo + the current garment into a try-on image. On timeout, missing garment URLs, or Gemini failure, it returns the reference photo reused across pose slots so the UI does not 504. That fallback is not AR and does not map clothes onto a body mesh.
+    - `api/ai/visualize` → Gemini image model composes the stored reference photo + the current garment into a try-on image. The extension sends your Supabase session token; unsigned calls are rejected. On timeout (~40s), missing garment URLs, or Gemini failure, it returns the reference photo reused across pose slots so the UI does not 504. That fallback is not AR and does not map clothes onto a body mesh.
 
 ---
 

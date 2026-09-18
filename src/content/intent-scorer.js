@@ -2,8 +2,8 @@
 (function () {
   'use strict';
 
-  // Low threshold so we show on real product pages, but still require some buying signals
-  const INTENT_THRESHOLD = 0;
+  // Require product-page signals (og:type=product is +5, add-to-cart +2, etc.)
+  const INTENT_THRESHOLD = 5;
 
   function isContextValid() {
     return !!(chrome.runtime && chrome.runtime.id);
