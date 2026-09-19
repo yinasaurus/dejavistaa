@@ -8,8 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Tweak prompts and styling based on user feedback.
-- Add support for more e‑commerce sites and color detection patterns.
+### Added
+- API routes require a Supabase session token.
+- Recommend can return a primary match plus up to two accessories for “Complete the look”.
+- Memory tab: open product URL, remove a single item.
+- `npm test` smoke checks (+ GitHub Action). Re-runnable SQL policies.
+
+### Changed
+- React 19, Vite 8.3, supabase-js 2.116.
+- Try-on model `gemini-3.1-flash-image`; generation timeout 40s.
+- Intent score threshold raised so listing pages fire less often.
+- Purge Memory no longer clears the auth session.
+
+### Fixed
+- Default API host `dejavistaa.vercel.app`.
+- Dead Gemini preview model string on visualize.
+
 
 ---
 

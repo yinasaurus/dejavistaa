@@ -59,7 +59,11 @@ export default async function handler(req, res) {
       description: (item.meta?.description || 'N/A').substring(0, 200)
     }));
 
-    const prompt = `You are an expert high-end fashion stylist. Your goal is to curate exactly ONE recommendation from the user's "Fashion Memory" (History) that perfectly complements the item they are currently browsing.
+    const prompt = `You are an expert high-end fashion stylist. Curate a look from the user's "Fashion Memory" (History) that complements the item they are currently browsing.
+
+Pick:
+- exactly ONE primary match (recommendedItemId)
+- up to TWO accessories / extra pieces (accessoryItemIds) that complete the outfit (e.g. bag, shoes, layer)
 
 Current Item:
 - Title: ${(currentItem.title || currentItem.meta?.title || 'Unknown').substring(0, 100)}
@@ -70,7 +74,7 @@ Current Item:
 User's Fashion Memory (History):
 ${sanitizedHistory.length > 0
         ? sanitizedHistory.map((item, idx) => `${idx + 1}. ID: ${item.id}, Title: ${item.title}, Brand: ${item.brand}, Desc: ${item.description}`).join('\n')
-        : "The user's history is currently empty. Provide general fashion advice if possible, or return null for recommendedItemId."}
+        : "The user's history is currently empty. Return null IDs."}
 
 STYLING PRINCIPLES:
 1. Color Coordination (Complementary/Analogous)
@@ -80,11 +84,12 @@ STYLING PRINCIPLES:
 
 Respond in JSON format ONLY:
 {
-  "recommendedItemId": "uuid",
+  "recommendedItemId": "uuid or null",
+  "accessoryItemIds": ["uuid"],
   "reasoning": "A concise stylist note (max 15 words)"
 }
 
-If nothing fits or history is empty, set recommendedItemId to null.`;
+IDs must come from the history list. Do not repeat recommendedItemId in accessoryItemIds. If nothing fits, set recommendedItemId to null and accessoryItemIds to [].`;
 
     let responseText = '';
 
@@ -152,6 +157,7 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
           return res.status(200).json({
             recommendation: null,
             recommendations: [],
+            accessories: [],
             matchedItemId: null,
             reasoning: 'AI temporarily unavailable. Please try again later.'
           });
@@ -220,17 +226,15 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
       responseText = jsonMatch[0];
     }
 
-    let result = { recommendedItemId: null, reasoning: 'No match found.' };
+    let result = { recommendedItemId: null, accessoryItemIds: [], reasoning: 'No match found.' };
     try {
       result = JSON.parse(responseText.trim());
     } catch (parseError) {
       console.error('[Recommend] JSON Parse Error:', parseError, 'Raw:', responseText);
-      // Clean markdown
       const cleaned = responseText.replace(/```json\n?|```/g, '').trim();
       try { result = JSON.parse(cleaned); } catch (e2) { }
     }
 
-    // Merge history details for the single recommendation
     let finalRecommendation = null;
     if (result.recommendedItemId && result.recommendedItemId !== "null") {
       const item = historyItems.find(h => String(h.id) === String(result.recommendedItemId));
@@ -242,12 +246,18 @@ If nothing fits or history is empty, set recommendedItemId to null.`;
       }
     }
 
+    const accessoryIds = Array.isArray(result.accessoryItemIds) ? result.accessoryItemIds : [];
+    const accessories = accessoryIds
+      .map((id) => historyItems.find((h) => String(h.id) === String(id)))
+      .filter((item) => item && item.id !== finalRecommendation?.id)
+      .slice(0, 2);
+
     console.log('[Recommend] Recommendation generated:', finalRecommendation ? finalRecommendation.meta?.title : 'None');
 
     return res.status(200).json({
       recommendation: finalRecommendation,
-      recommendations: finalRecommendation ? [finalRecommendation] : [], // Backwards compatibility if needed
-      // Keep legacy fields
+      recommendations: [finalRecommendation, ...accessories].filter(Boolean),
+      accessories,
       matchedItemId: finalRecommendation?.id || null,
       reasoning: finalRecommendation?.reasoning || 'No matches found.'
     });

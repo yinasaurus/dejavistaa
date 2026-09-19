@@ -155,6 +155,7 @@ export default function MirrorTab() {
 
     setLoadingRecommendation(true);
     setRecommendation(null);
+    setAccessories([]);
 
     try {
       const response = await aiFetch(supabase, '/api/ai/recommend', {
@@ -171,6 +172,9 @@ export default function MirrorTab() {
 
       const data = await response.json();
       setRecommendation(data);
+      if (Array.isArray(data.accessories) && data.accessories.length) {
+        setAccessories(data.accessories);
+      }
     } catch (error) {
       console.error('[Mirror] Error getting recommendation:', error);
     } finally {
@@ -293,11 +297,12 @@ export default function MirrorTab() {
         console.warn('[Mirror] Failed to cache try-on poses:', e);
       }
 
-      const accessoriesCandidates = historyItems
-        .filter((item) => item.id !== recommendation?.matchedItemId)
-        .slice(0, 6);
-
-      setAccessories(accessoriesCandidates);
+      if (!accessories.length) {
+        const accessoriesCandidates = historyItems
+          .filter((item) => item.id !== recommendation?.matchedItemId)
+          .slice(0, 6);
+        setAccessories(accessoriesCandidates);
+      }
     } catch (error) {
       console.error('[Mirror] Error generating try-on:', error);
       setTryOnError('Something went wrong while generating your try-on.');

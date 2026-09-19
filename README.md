@@ -10,6 +10,8 @@ Chrome extension that remembers what you browse on fashion sites and uses GenAI 
    npm run build
    ```
 2. In Chrome go to `chrome://extensions/` → enable **Developer mode** → **Load unpacked** → select the `dist` folder.
+3. After changing `.env`, rebuild. After pulling API changes, **redeploy Vercel** or the extension still talks to the old production functions.
+4. `npm test` checks the live API (unauthenticated calls should 401 once the new code is deployed).
 
 ### **2. Core features**
 
@@ -50,7 +52,7 @@ npm run build
     - `service_role` key → `SUPABASE_SERVICE_KEY` (local `.env` and Vercel only — never prefix with `VITE_`, never commit it).
 
 - **Database tables + RLS**
-  - In **SQL editor**, run `database/001_closet_items.sql` once per project.
+  - In **SQL editor**, run `database/001_closet_items.sql` (safe to re-run).
 
 - **Storage for reference photos**
   - In **Storage** create a private bucket named `user_photos` with RLS enabled.
@@ -92,7 +94,7 @@ After changing env vars, redeploy the latest Production build in Vercel.
 - Extension UI (side panel) talks to:
   - **Supabase** for auth, history (`closet_items`), and `user_photos/<userId>/reference.jpg`.
   - **Vercel APIs**:
-    - `api/ai/recommend` → uses `GEMINI_API_KEY` to pick one matching item from closet history.  
+    - `api/ai/recommend` → uses `GEMINI_API_KEY` to pick one matching item from closet history, plus up to two accessories for “Complete the look”.  
     - `api/ai/validate-photo` → checks that the reference photo is a usable full-body shot.  
     - `api/ai/visualize` → Gemini image model composes the stored reference photo + the current garment into a try-on image. The extension sends your Supabase session token; unsigned calls are rejected. On timeout (~40s), missing garment URLs, or Gemini failure, it returns the reference photo reused across pose slots so the UI does not 504. That fallback is not AR and does not map clothes onto a body mesh.
 
